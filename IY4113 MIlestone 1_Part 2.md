@@ -26,8 +26,6 @@ To extend CityRide Lite into a more advanced console-based Java transport fare c
 
 ### **Core Program Functionality**
 
-
-
 **Role selection**: when the program launches, the user chooses between two roles: rider or admin, each with its own separate menu and set of options to do.
 
 **Rider profile management**: a rider can create a new profile or load an existing one. The profile stores their name, passenger type, and default payment option. Profiles are saved and loaded using JSON files, allowing the rider to continue from a previous session.
@@ -70,4 +68,18 @@ To extend CityRide Lite into a more advanced console-based Java transport fare c
 
 ---
 
+### Gantt chart
 
+![gfd](/Users/dushesssx/Desktop/Gantt%20chart.png)
+
+---
+
+### Diary Entries
+
+---
+
+### 19/03/2026 - Diary Entry 1 – Understanding the program purpose and constraints, creating Gantt chart
+
+Today I started working on Milestone 1 of the CityRide Lite Part 2 assignment. I began by reading through the full specification to understand what has changed compared to Part 1. I then wrote the purpose of the program, identfied its core functionality and system constraints. I also created a Gantt chart to plan the remaining weeks up to the final submission deadline.
+
+Overall, there weren’t any problems today, it’s much easier to do this the second time. And also, after receiving full feedback on Part 1, I know where my weaknesses were and will try to avoid them in the second part.
