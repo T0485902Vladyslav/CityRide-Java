@@ -8,6 +8,7 @@
 | Module Tutor Name  | Jonathan Shore                                                   |
 | Student ID Number  | P485902                                                          |
 | Date of Submission | 22/03/2026                                                       |
+| GitHub LInk        | https://github.com/T0485902Vladyslav/IY4113_Java_T0485902_Part_2 |
 
 - [x] *I confirm that this assignment is my own work. Where I have referred to academic sources, I have provided in-text citations and included the sources in
   the final reference list.*
@@ -108,6 +109,72 @@ To extend CityRide Lite into a more advanced console-based Java transport fare c
 
 ---
 
+## Research (minimum of 1 required, preferrebly 2)
+
+---
+
+*Research existing programs that solve a similar problem. The program does not have to be written in java or object orientated in nature - just solve a similar type of problem.*
+
+*Use the strucutre below to capture your evidence:*
+
+------------------------------------------------------------------------------------------------------------------------------Name of program: BankApp
+
+Reference (link): github.com/BasharShehab/BankApp
+
+What it does well (2-3 features that work effectively):
+
+Clear separation between manager and customer menus, each role only sees options relevant to them with their own logins.
+
+Password-protected manager login, unauthorised users cannot access admin functions
+
+Data is saved to files between sessions so nothing is lost when the program closes
+
+What it does poorly (at least 1 feature):
+
+Not everywhere input validation exists, entering letters where a number is expected crashes the program
+
+To access cusomer menu firstly you need to log in to admin menu and create customer with it's own log in details 
+
+Key design ideas you could reuse (e.g., layout, navigation, input/output, program structure):
+
+The switch statement structure for routing between role menus is clean and easy to follow, I plan to use the same approach in CityRide Lite Part 2 for Rider and Admin routing.
+
+Screenshot (showing the interface/output):
+
+![gfd](/Users/dushesssx/Desktop/research%20BankApp.png)
+
+details to log in to amdin menu
+
+---
+
+Name of program: Console-based Expense Tracker
+
+Reference (link): github.com/yashsanodiya89/Console-based-expense-tracker
+
+What it does well (2-3 features that work effectively):
+
+Each expense is stored with details: ID, amount, category, description and date, and saved to a file for future use, which is very similar to how I plan to store journey records.
+
+The user can delete a specific journey by its ID, after which the updated list is saved to a file, I use the same approach in Remove Journey.
+
+The data is stored in separate files organised by type (expense.txt, categories.txt), a simple and clear way of organising the data
+
+What it does poorly (at least 1 feature):
+
+There is no import function, data can only be saved, but cannot be loaded from an external file. In my program, I need to implement both import and export functions.
+
+Key design ideas you could reuse (e.g., layout, navigation, input/output, program structure):
+
+A pattern where each object is written as a single line to a file and read back at program start-up. I think I can use the same approach for Journey import/export via CSV.
+
+Screenshot (showing the interface/output):
+
+![gdfg](/Users/dushesssx/Desktop/research%20expense_tracker.png)
+
+Main menu and example of how program reads expenses from a file, added in previous program run.
+
+---
+
 ### Gantt chart
 
 ![gfd](/Users/dushesssx/Desktop/Gantt%20chart.png)
@@ -124,12 +191,14 @@ Today I started working on Milestone 1 of the CityRide Lite Part 2 assignment. I
 
 Overall, there weren’t any problems today, it’s much easier to do this the second time. And also, after receiving full feedback on Part 1, I know where my weaknesses were and will try to avoid them in the second part.
 
-
-
-
-
 ### 20/03/2026 - Diary Entry 2 – Input Process Output table
 
 Today I continued working on Milestone 1 of the CityRide Lite Part 2 assignment. I completed the IPO table for all functions in the program, identifying inputs, processing steps and outputs for each feature. This includes both functions carried over from Part 1 and all the new functions introduced in Part 2, such as profile management, file import/export, administration settings and role selection. I have also checked and corrected several input field, for example, I replaced "None" with "journeys (List<Journey>)" for List Journeys and added "config(SystemConfig)"" as the input for View Config. I'm not sure now how I will implement configuration logic but I plan to create a SystemConfig class to store all system settings in one place (fares, discounts, caps, peak times). This will make it easy to pass into methods that need config data, and simple to load and save as a single JSON file.
 
 For some functions that do not require direct user input, such as List Journeys and View Config, I initially left the input field blank. However, I remembered that there was a question mark next to such a field in the feedback for Part 1, so I have now filled them in. 
+
+### 21/03/2026 - Diary Entry 2 – Research similar programs
+
+Today I worked on the research part. I looked for similar programs to prepare my design decisions for my program,. I found and analysed two programs: BankApp (role-based menu system with admin password) and Console-based Expense Tracker (file saving and record management by ID).
+
+Finding suitable programs was harder than expected. Since the previous tasks were easier the second time round, the research turned out to be even more difficult because I was specifically looking for Java applications. Many GitHub projects that looked relevant were too hard to understand. They either had too many dependencies and would not run in IntelliJ without extra setup, that I don't now how to do now, or they did not actually have the features described in their README. For example, one project claimed to have CSV import/export but only had a lot of red errors. I also found that some projects with an admin/user role separation turned out to only have a basic login system with no real role-based menus. In the end I had to try several projects before finding ones that were simple enough to run and relevant enough to my own program.
