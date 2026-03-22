@@ -175,6 +175,44 @@ Main menu and example of how program reads expenses from a file, added in previo
 
 ---
 
+### Algorithm design
+
+---
+
+Full algorithm overview (photo with high quality available on GitHub)
+
+![gf](/Users/dushesssx/Downloads/4113_%20full%20algorithm%20overview.jpg)
+
+Main loop and rider menu subroutine
+
+![gfd](/Users/dushesssx/Downloads/4113%20algorithm-3.jpg)
+
+Admin menu
+
+![gd](/Users/dushesssx/Downloads/4113%20algorithm%20-%20Copy%20of%20full%20algorithm%20overview.jpg)
+
+Subroutine add journey, list journey, remove journey and reset day 
+
+![gd](/Users/dushesssx/Downloads/4113%20algorithm%20-%201.jpg) 
+
+Subroutines filter journey, import from CSV file and Export to CSV file 
+
+![gfd](/Users/dushesssx/Downloads/4113%20algorithm%20-%20Frame%206.jpg)
+
+Subroutines edit journey, category counts, passenger totals, export summary report, daily summary
+
+![gfd](/Users/dushesssx/Downloads/4113%20algorithm%20-%20Frame%207-2.jpg)
+
+---
+
+### Class diagram
+
+---
+
+![gdf](/Users/dushesssx/Downloads/IY4113%20class%20diagram_Part%202.png)
+
+---
+
 ### Gantt chart
 
 ![gfd](/Users/dushesssx/Desktop/Gantt%20chart.png)
@@ -197,8 +235,15 @@ Today I continued working on Milestone 1 of the CityRide Lite Part 2 assignment.
 
 For some functions that do not require direct user input, such as List Journeys and View Config, I initially left the input field blank. However, I remembered that there was a question mark next to such a field in the feedback for Part 1, so I have now filled them in. 
 
-### 21/03/2026 - Diary Entry 2 – Research similar programs
+### 21/03/2026 - Diary Entry 3 – Research similar programs
 
 Today I worked on the research part. I looked for similar programs to prepare my design decisions for my program,. I found and analysed two programs: BankApp (role-based menu system with admin password) and Console-based Expense Tracker (file saving and record management by ID).
 
 Finding suitable programs was harder than expected. Since the previous tasks were easier the second time round, the research turned out to be even more difficult because I was specifically looking for Java applications. Many GitHub projects that looked relevant were too hard to understand. They either had too many dependencies and would not run in IntelliJ without extra setup, that I don't now how to do now, or they did not actually have the features described in their README. For example, one project claimed to have CSV import/export but only had a lot of red errors. I also found that some projects with an admin/user role separation turned out to only have a basic login system with no real role-based menus. In the end I had to try several projects before finding ones that were simple enough to run and relevant enough to my own program.
+
+### 22/03/2026 - Diary Entry 4 – Algorithm and class diagram creating
+
+Today I completed the design section of Milestone 1. I finished drawing the class diagram, extending my Part 1 diagram with new classes including RiderProfile, SystemConfig, AdminService, RiderService, abstract FileHandler, JsonFileHandler, CsvFileHandler, and ReportExporter. I also added inheritance between FileHandler and its two child classes to practice on object-oriented principles covered in class, and I think it's good choice to use inheritance in this case, because they share common behaviour for different type of files. After receiving feedback on the Part 1 class diagram, I fixed my class diagram notation.
+I also completed the algorithm design by creating flowcharts for all new subroutines: Start with role selection, Rider menu, , Edit Journey, Import CSV, Export CSV, Export Summary Report,  Admin Menu with all features in 1 algorithm. I kept all existing Part 1 flowcharts unchanged and only added the new ones on top.
+
+Deciding how to structure the class diagram and algorithm took a lot of time. In class diagram specifically with inheritance, cause I want to implement this in my program for practice. I also wanted to implement inheritance in RiderSystem and AdminSystem, but then decided to use it only in file handling. The FileHandler inheritance felt more justified.
