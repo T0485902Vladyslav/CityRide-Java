@@ -5,6 +5,7 @@ import java.time.format.DateTimeParseException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Scanner;
+import java.time.*;
 
 class Journey{
     private int journeyID;
@@ -110,10 +111,10 @@ class JourneyManagement {
             passengerTotals.put(type, new PassengerTotals(type));
         }
 
-        BigDecimal adultRunning       = BigDecimal.ZERO;
-        BigDecimal studentRunning     = BigDecimal.ZERO;
-        BigDecimal childRunning       = BigDecimal.ZERO;
-        BigDecimal seniorRunning      = BigDecimal.ZERO;
+        BigDecimal adultRunning = BigDecimal.ZERO;
+        BigDecimal studentRunning = BigDecimal.ZERO;
+        BigDecimal childRunning = BigDecimal.ZERO;
+        BigDecimal seniorRunning = BigDecimal.ZERO;
 
         for (int i = 0; i < journeys.size(); i++) {
             Journey old = journeys.get(i);
@@ -129,8 +130,7 @@ class JourneyManagement {
                 running = seniorRunning;
             }
 
-            Journey rebuilt = fareCalculator.createJourney(
-                    old.getJourneyID(), old.getDate(),
+            Journey rebuilt = fareCalculator.createJourney(old.getJourneyID(), old.getDate(),
                     old.getFromZone(), old.getToZone(),
                     old.getTimeBand(), old.getPassengerType(),
                     running
@@ -469,6 +469,156 @@ final class CityRideDataset{
     }
 }
 
+
+class SystemConfig{
+    private Map<String, BigDecimal> baseFares;
+    private Map<PassengerType, BigDecimal> discountRates;
+    private Map<PassengerType, BigDecimal> dailyCaps;
+    private LocalTime peakStart;
+    private LocalTime peakEnd;
+
+    public SystemConfig(){
+        loadDefaults();
+    }
+
+    private void loadDefaultDiscounts(){
+        discountRates = new HashMap<>();
+        discountRates.put(PassengerType.ADULT, new BigDecimal("0.00"));
+        discountRates.put(PassengerType.STUDENT, new BigDecimal("0.25"));
+        discountRates.put(PassengerType.CHILD, new BigDecimal("0.50"));
+        discountRates.put(PassengerType.SENIOR_CITIZEN, new BigDecimal("0.30"));
+    }
+    private void loadDefaultDailyCaps(){
+        dailyCaps = new HashMap<>();
+        dailyCaps.put(PassengerType.ADULT, new BigDecimal("8.00"));
+        dailyCaps.put(PassengerType.STUDENT, new BigDecimal("6.00"));
+        dailyCaps.put(PassengerType.CHILD, new BigDecimal("4.00"));
+        dailyCaps.put(PassengerType.SENIOR_CITIZEN, new BigDecimal("7.00"));
+    }
+
+    //A helper method don't write new BigDecimal(amount) every time
+    private void putBaseFare(String key, String amount){
+        baseFares.put(key, new BigDecimal(amount));
+    }
+
+    private void loadDefaultBaseFares() {
+        baseFares = new HashMap<>();
+
+        // Peak fares
+        putBaseFare("1-1-PEAK", "2.50"); putBaseFare("1-2-PEAK", "3.20");
+        putBaseFare("1-3-PEAK", "3.80"); putBaseFare("1-4-PEAK", "4.40");
+        putBaseFare("1-5-PEAK", "5.00");
+
+        putBaseFare("2-1-PEAK", "3.20"); putBaseFare("2-2-PEAK", "2.30");
+        putBaseFare("2-3-PEAK", "3.10"); putBaseFare("2-4-PEAK", "3.80");
+        putBaseFare("2-5-PEAK", "4.50");
+
+        putBaseFare("3-1-PEAK", "3.80"); putBaseFare("3-2-PEAK", "3.10");
+        putBaseFare("3-3-PEAK", "2.10"); putBaseFare("3-4-PEAK", "3.00");
+        putBaseFare("3-5-PEAK", "3.70");
+
+        putBaseFare("4-1-PEAK", "4.40"); putBaseFare("4-2-PEAK", "3.80");
+        putBaseFare("4-3-PEAK", "3.00"); putBaseFare("4-4-PEAK", "2.00");
+        putBaseFare("4-5-PEAK", "2.90");
+
+        putBaseFare("5-1-PEAK", "5.00"); putBaseFare("5-2-PEAK", "4.50");
+        putBaseFare("5-3-PEAK", "3.70"); putBaseFare("5-4-PEAK", "2.90");
+        putBaseFare("5-5-PEAK", "1.90");
+
+        // Off-peak fares
+        putBaseFare("1-1-OFF_PEAK", "2.00"); putBaseFare("1-2-OFF_PEAK", "2.70");
+        putBaseFare("1-3-OFF_PEAK", "3.20"); putBaseFare("1-4-OFF_PEAK", "3.70");
+        putBaseFare("1-5-OFF_PEAK", "4.20");
+
+        putBaseFare("2-1-OFF_PEAK", "2.70"); putBaseFare("2-2-OFF_PEAK", "1.90");
+        putBaseFare("2-3-OFF_PEAK", "2.60"); putBaseFare("2-4-OFF_PEAK", "3.20");
+        putBaseFare("2-5-OFF_PEAK", "3.80");
+
+        putBaseFare("3-1-OFF_PEAK", "3.20"); putBaseFare("3-2-OFF_PEAK", "2.60");
+        putBaseFare("3-3-OFF_PEAK", "1.70"); putBaseFare("3-4-OFF_PEAK", "2.50");
+        putBaseFare("3-5-OFF_PEAK", "3.10");
+
+        putBaseFare("4-1-OFF_PEAK", "3.70"); putBaseFare("4-2-OFF_PEAK", "3.20");
+        putBaseFare("4-3-OFF_PEAK", "2.50"); putBaseFare("4-4-OFF_PEAK", "1.60");
+        putBaseFare("4-5-OFF_PEAK", "2.40");
+
+        putBaseFare("5-1-OFF_PEAK", "4.20"); putBaseFare("5-2-OFF_PEAK", "3.80");
+        putBaseFare("5-3-OFF_PEAK", "3.10"); putBaseFare("5-4-OFF_PEAK", "2.40");
+        putBaseFare("5-5-OFF_PEAK", "1.50");
+    }
+
+    public void loadDefaults(){
+        peakStart = LocalTime.of(7,0);
+        peakEnd = LocalTime.of(19,0);
+        loadDefaultDiscounts();
+        loadDefaultDailyCaps();
+        loadDefaultBaseFares();
+    }
+
+    public TimeBand determineTimeBand(LocalTime time) {
+        TimeBand result;
+        if (time.isBefore(peakStart) || !time.isBefore(peakEnd)) {
+            result = TimeBand.OFF_PEAK;
+        } else {
+            result = TimeBand.PEAK;
+        }
+        return result;
+    }
+
+    public BigDecimal getBaseFare(int fromZone, int toZone, TimeBand timeBand) {
+        String key = fromZone + "-" + toZone +  "-" + timeBand.name();
+        return baseFares.get(key);
+    }
+
+    public BigDecimal getDiscountRate(PassengerType passengerType) {
+        return discountRates.get(passengerType);
+    }
+
+    public BigDecimal getDailyCap(PassengerType passengerType) {
+        return dailyCaps.get(passengerType);
+    }
+
+    public LocalTime getPeakStart() {
+        return peakStart;
+    }
+
+    public LocalTime getPeakEnd(){
+        return peakEnd;
+    }
+
+    public Map<String, BigDecimal> getBaseFares() {
+        return baseFares;
+    }
+
+    public Map<PassengerType, BigDecimal> getDiscountRates() {
+        return discountRates;
+    }
+
+    public Map<PassengerType, BigDecimal> getDailyCaps() {
+        return dailyCaps;
+    }
+
+    public void setPeakStart(LocalTime peakStart) {
+        this.peakStart = peakStart;
+    }
+
+    public void setPeakEnd(LocalTime peakEnd) {
+        this.peakEnd = peakEnd;
+    }
+
+    public void setBaseFares(int fromZone, int toZone, TimeBand timeBand, BigDecimal fare) {
+        String key = fromZone + "-" + toZone +  "-" + timeBand.name();
+        baseFares.put(key, fare);
+    }
+
+    public void setDiscountRates(PassengerType type, BigDecimal rate) {
+        discountRates.put(type, rate);
+    }
+
+    public void setDailyCap(PassengerType passengerType, BigDecimal cap) {
+        dailyCaps.put(passengerType, cap);
+    }
+}
 
 
 public class CityRideSystem {
@@ -814,7 +964,7 @@ public class CityRideSystem {
             byZonePair.put(pair, byZonePair.getOrDefault(pair, 0) + 1);
 
             byZone.put(journey.getFromZone(), byZone.getOrDefault(journey.getFromZone(), 0) + 1);
-            byZone.put(journey.getToZone(),   byZone.getOrDefault(journey.getToZone(),   0) + 1);
+            byZone.put(journey.getToZone(), byZone.getOrDefault(journey.getToZone(),   0) + 1);
         }
 
         System.out.println("\n-----Category counts-----");
