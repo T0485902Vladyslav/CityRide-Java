@@ -18,14 +18,16 @@ class Journey{
     private BigDecimal baseFare;
     private BigDecimal discountedFare;
     private BigDecimal chargedFare;
+    private LocalTime time;
 
-    public Journey(int journeyID, LocalDate date, int fromZone, int toZone,
+    public Journey(int journeyID, LocalDate date, LocalTime time, int fromZone, int toZone,
                    TimeBand timeBand, PassengerType passengerType,
                    int zonesCrossed, BigDecimal baseFare,
                    BigDecimal discountedFare, BigDecimal chargedFare) {
 
         this.journeyID = journeyID;
         this.date = date;
+        this.time = time;
         this.fromZone = fromZone;
         this.toZone = toZone;
         this.timeBand = timeBand;
@@ -66,10 +68,14 @@ class Journey{
     public BigDecimal getChargedFare() {
         return chargedFare;
     }
+    public LocalTime getTime() {
+        return time;
+    }
 
     public String toString() {
         return "Journey #" + journeyID + "\n" +
                 "Date: " + date + "\n" +
+                "Time: " + time + "\n" +
                 "From Zone: " + fromZone + "\n" +
                 "To Zone: " + toZone + "\n" +
                 "Time Band: " + timeBand + "\n" +
@@ -130,11 +136,9 @@ class JourneyManagement {
                 running = seniorRunning;
             }
 
-            Journey rebuilt = fareCalculator.createJourney(old.getJourneyID(), old.getDate(),
-                    old.getFromZone(), old.getToZone(),
-                    old.getTimeBand(), old.getPassengerType(),
-                    running
-            );
+            Journey rebuilt = fareCalculator.createJourney(old.getJourneyID(), old.getDate(), old.getTime(),
+                    old.getFromZone(), old.getToZone(), old.getPassengerType(), running);
+
             journeys.set(i, rebuilt);
 
             if (rebuilt.getPassengerType() == PassengerType.ADULT) {
@@ -262,8 +266,7 @@ class PassengerTotals {
         this.discountedTotal = discountedTotal.add(discountedFare);
         this.chargedTotal = chargedTotal.add(chargedFare);
 
-        BigDecimal cap = CityRideDataset.DAILY_CAP.get(passengerType);
-        if (chargedTotal.compareTo(cap) >= 0) {
+        if (chargedFare.compareTo(BigDecimal.ZERO) == 0) {
             capReached = true;
         }
     }
@@ -348,15 +351,23 @@ class DailySummary {
 }
 
 class FareCalculator{
+
+    private SystemConfig config;
+
+    public FareCalculator(SystemConfig config) {
+        this.config = config;
+    }
+
+    // Applies the passenger discount to the base fare
     public BigDecimal calculateDiscountedFare(BigDecimal baseFare, PassengerType passengerType) {
-        BigDecimal discountedRate = CityRideDataset.DISCOUNT_RATE.get(passengerType);
+        BigDecimal discountedRate = config.getDiscountRate(passengerType);
         BigDecimal discountAmount = baseFare.multiply(discountedRate);
         return baseFare.subtract(discountAmount).setScale(2, RoundingMode.HALF_UP);
     }
 
     // Applies the daily cap rule: once the passenger reaches the cap, further journeys cost £0.
     public BigDecimal calculateChargedFare(BigDecimal discountedFare, PassengerType passengerType, BigDecimal runningTotal) {
-        BigDecimal cap =  CityRideDataset.DAILY_CAP.get(passengerType);
+        BigDecimal cap =  config.getDailyCap(passengerType);
         BigDecimal chargedFare;
 
         if (runningTotal.compareTo(cap) >= 0) {
@@ -366,111 +377,25 @@ class FareCalculator{
         }else{
             chargedFare = discountedFare;
         }
+
         return chargedFare.setScale(2, RoundingMode.HALF_UP);
     }
 
-    public Journey createJourney(int journeyID, LocalDate date, int fromZone, int toZone, TimeBand timeBand, PassengerType passengerType, BigDecimal runningTotal){
+    public Journey createJourney(int journeyID, LocalDate date, LocalTime time, int fromZone, int toZone, PassengerType passengerType, BigDecimal runningTotal){
         int zonesCrossed = Math.abs(toZone - fromZone) + 1;
+        TimeBand timeBand = config.determineTimeBand(time);
 
-        BigDecimal baseFare = CityRideDataset.getBaseFare(fromZone, toZone, timeBand);
+        BigDecimal baseFare = config.getBaseFare(fromZone, toZone, timeBand);
         BigDecimal discountedFare = calculateDiscountedFare(baseFare, passengerType);
         BigDecimal chargedFare = calculateChargedFare(discountedFare, passengerType, runningTotal);
 
-        return new Journey(journeyID, date, fromZone, toZone, timeBand, passengerType, zonesCrossed, baseFare, discountedFare, chargedFare);
+        return new Journey(journeyID, date, time, fromZone, toZone, timeBand, passengerType, zonesCrossed, baseFare, discountedFare, chargedFare);
     }
 }
-
-
-final class CityRideDataset{
-
-    private CityRideDataset() {}
-
-    public static final int MIN_ZONE = 1;
-    public static final int MAX_ZONE = 5;
-
-    public static final Map<PassengerType, BigDecimal> DISCOUNT_RATE = Map.of(
-            PassengerType.ADULT, new BigDecimal("0.00"),
-            PassengerType.STUDENT, new BigDecimal("0.25"),
-            PassengerType.CHILD, new BigDecimal("0.50"),
-            PassengerType.SENIOR_CITIZEN, new BigDecimal("0.30")
-    );
-
-    public static final Map<PassengerType, BigDecimal> DAILY_CAP = Map.of(
-            PassengerType.ADULT, new BigDecimal("8.00"),
-            PassengerType.STUDENT, new BigDecimal("6.00"),
-            PassengerType.CHILD, new BigDecimal("4.00"),
-            PassengerType.SENIOR_CITIZEN, new BigDecimal("7.00")
-    );
-
-    public static final Map<String, BigDecimal> BASE_FARE = buildBaseFare();
-
-    public static BigDecimal getBaseFare(int fromZone, int toZone, TimeBand timeBand) {
-        return BASE_FARE.get(key(fromZone, toZone, timeBand));
-    }
-
-    public static String key(int fromZone, int toZone, TimeBand timeBand) {
-        return fromZone + "-" + toZone + "-" + timeBand.name();
-    }
-
-    private static BigDecimal money(String amount) {
-        return new BigDecimal(amount).setScale(2, RoundingMode.HALF_UP);
-    }
-
-    private static Map<String, BigDecimal> buildBaseFare() {
-        Map<String, BigDecimal> m = new HashMap<>();
-
-        // Peak fares
-        put(m,1,1,TimeBand.PEAK,"2.50"); put(m,1,2,TimeBand.PEAK,"3.20");
-        put(m,1,3,TimeBand.PEAK,"3.80"); put(m,1,4,TimeBand.PEAK,"4.40");
-        put(m,1,5,TimeBand.PEAK,"5.00");
-
-        put(m,2,1,TimeBand.PEAK,"3.20"); put(m,2,2,TimeBand.PEAK,"2.30");
-        put(m,2,3,TimeBand.PEAK,"3.10"); put(m,2,4,TimeBand.PEAK,"3.80");
-        put(m,2,5,TimeBand.PEAK,"4.50");
-
-        put(m,3,1,TimeBand.PEAK,"3.80"); put(m,3,2,TimeBand.PEAK,"3.10");
-        put(m,3,3,TimeBand.PEAK,"2.10"); put(m,3,4,TimeBand.PEAK,"3.00");
-        put(m,3,5,TimeBand.PEAK,"3.70");
-
-        put(m,4,1,TimeBand.PEAK,"4.40"); put(m,4,2,TimeBand.PEAK,"3.80");
-        put(m,4,3,TimeBand.PEAK,"3.00"); put(m,4,4,TimeBand.PEAK,"2.00");
-        put(m,4,5,TimeBand.PEAK,"2.90");
-
-        put(m,5,1,TimeBand.PEAK,"5.00"); put(m,5,2,TimeBand.PEAK,"4.50");
-        put(m,5,3,TimeBand.PEAK,"3.70"); put(m,5,4,TimeBand.PEAK,"2.90");
-        put(m,5,5,TimeBand.PEAK,"1.90");
-
-        // Off-peak fares
-        put(m,1,1,TimeBand.OFF_PEAK,"2.00"); put(m,1,2,TimeBand.OFF_PEAK,"2.70");
-        put(m,1,3,TimeBand.OFF_PEAK,"3.20"); put(m,1,4,TimeBand.OFF_PEAK,"3.70");
-        put(m,1,5,TimeBand.OFF_PEAK,"4.20");
-
-        put(m,2,1,TimeBand.OFF_PEAK,"2.70"); put(m,2,2,TimeBand.OFF_PEAK,"1.90");
-        put(m,2,3,TimeBand.OFF_PEAK,"2.60"); put(m,2,4,TimeBand.OFF_PEAK,"3.20");
-        put(m,2,5,TimeBand.OFF_PEAK,"3.80");
-
-        put(m,3,1,TimeBand.OFF_PEAK,"3.20"); put(m,3,2,TimeBand.OFF_PEAK,"2.60");
-        put(m,3,3,TimeBand.OFF_PEAK,"1.70"); put(m,3,4,TimeBand.OFF_PEAK,"2.50");
-        put(m,3,5,TimeBand.OFF_PEAK,"3.10");
-
-        put(m,4,1,TimeBand.OFF_PEAK,"3.70"); put(m,4,2,TimeBand.OFF_PEAK,"3.20");
-        put(m,4,3,TimeBand.OFF_PEAK,"2.50"); put(m,4,4,TimeBand.OFF_PEAK,"1.60");
-        put(m,4,5,TimeBand.OFF_PEAK,"2.40");
-
-        put(m,5,1,TimeBand.OFF_PEAK,"4.20"); put(m,5,2,TimeBand.OFF_PEAK,"3.80");
-        put(m,5,3,TimeBand.OFF_PEAK,"3.10"); put(m,5,4,TimeBand.OFF_PEAK,"2.40");
-        put(m,5,5,TimeBand.OFF_PEAK,"1.50");
-
-        return Map.copyOf(m);
-    }
-
-    private static void put(Map<String, BigDecimal> m, int from, int to, TimeBand band, String amount) {
-        m.put(key(from, to, band ), money(amount));
-    }
-}
-
 
 class SystemConfig{
+    public static final int MIN_ZONE = 1;
+    public static final int MAX_ZONE = 5;
     private Map<String, BigDecimal> baseFares;
     private Map<PassengerType, BigDecimal> discountRates;
     private Map<PassengerType, BigDecimal> dailyCaps;
@@ -623,7 +548,8 @@ class SystemConfig{
 
 public class CityRideSystem {
     private static final Scanner scanner = new Scanner(System.in);
-    private static final FareCalculator fareCalculator = new FareCalculator();
+    private static final SystemConfig systemConfig = new SystemConfig();
+    private static final FareCalculator fareCalculator = new FareCalculator(systemConfig);
     private static final JourneyManagement journeyManagement = new JourneyManagement(fareCalculator);
     private static int nextJourneyID = 1;
 
@@ -756,7 +682,7 @@ public class CityRideSystem {
         int zone = 0;
         while (!validChoice) {
             zone = readInt(prompt);
-            if (zone >= CityRideDataset.MIN_ZONE && zone <= CityRideDataset.MAX_ZONE) {   // or alternative option (zone >=1 && zone <=5), but I like my way.
+            if (zone >= SystemConfig.MIN_ZONE && zone <= SystemConfig.MAX_ZONE) {   // or alternative option (zone >=1 && zone <=5), but I like my way.
                 validChoice = true;
             }else{
                 System.out.println("Invalid input. Zone must be between 1 and 5.");
@@ -847,18 +773,40 @@ public class CityRideSystem {
         return passengerType;
     }
 
+    // I created this method to check whether the inputted time is correct, method re-prompts user if not.
+    private static LocalTime readTime(String prompt) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+        boolean validTime = false;
+        LocalTime time = LocalTime.now();
+        while (!validTime) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) {
+                System.out.println("Invalid input. Time cannot be blank.");
+            } else {
+                try {
+                    time = LocalTime.parse(input, formatter);
+                    validTime = true;
+                } catch (DateTimeParseException e) {
+                    System.out.println("Invalid input. Please enter time as HH:mm (e.g. 19:55)");
+                }
+            }
+        }
+        return time;
+    }
+
     private static void addJourney() {
         System.out.println("\nAdd Journey details");
         LocalDate date = readDate("date(dd/MM/yyyy): ");
+        LocalTime time = readTime("Time (HH:mm): ");
         int fromZone = readZone("fromZone: ");
         int toZone = readZone("toZone: ");
-        TimeBand timeBand = readTimeBand();
         PassengerType passengerType = readPassengerType();
 
         // Running total is used so the FareCalculator can apply the daily cap correctly.
         BigDecimal runningTotal = journeyManagement.getRunningTotal(passengerType);
 
-        Journey journey = fareCalculator.createJourney(nextJourneyID, date, fromZone, toZone, timeBand, passengerType, runningTotal);
+        Journey journey = fareCalculator.createJourney(nextJourneyID, date, time, fromZone, toZone, passengerType, runningTotal);
 
         journeyManagement.addJourney(journey);
 
@@ -869,7 +817,7 @@ public class CityRideSystem {
 
     private static void listJourneys() {
         List<Journey> journeys = journeyManagement.getDailySummary();
-        if(journeys.size() == 0){
+        if(journeys.isEmpty()){
             System.out.println("No journeys yet.");
         }else{
             System.out.println("\n---All journeys---");
