@@ -57,6 +57,28 @@ Screenshot of research:
 
 ---
 
+Title of research: JSON Serializers and Deserializers.
+
+Reference (link): https://github.com/google/gson/blob/main/UserGuide.md#custom-serialization-and-deserialization
+
+How does the research help with coding practise?:
+
+The Gson User Guide explained how to handle types that Gson cannot handle automatically by writing a custom adapter. This helped me understand how to save a LocalTime field to a JSON file by converting it to a string, which I applied in the LocalTimeAdapter class.
+
+Key coding ideas you could reuse in your program:
+
+- JsonSerializer: converts a Java object to a JSON element when saving to a file
+- JsonDeserializer: converts a JSON element back to a Java object when reading from a file
+- registerTypeAdapter(): tells Gson which adapter to use for a specific type
+
+Screenshot of research:
+
+![gdf](/Users/dushesssx/Desktop/Screenshot%202026-04-05%20at%2023.01.35.png)
+
+![gf](/Users/dushesssx/Desktop/Screenshot%202026-04-05%20at%2023.01.50.png)
+
+---
+
 ### Program code
 
 ---
@@ -70,6 +92,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Scanner;
 import java.time.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSerializer;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonDeserializationContext;
 
 class Journey{
     private int journeyID;
@@ -609,10 +639,96 @@ class SystemConfig{
     }
 }
 
+//Abstract base class for all file handling operations. JsonFileHandler and CsvFileHandler will extend this class.
+abstract class FileHandler {
+    private String filePath;
+
+    public FileHandler(String filePath) {
+        this.filePath = filePath;
+    }
+
+    public String getFilePath() {
+        return filePath;
+    }
+
+    // Checks if the file exists and is readable
+    public boolean validateFile() {
+        java.io.File file = new java.io.File(filePath);
+        return file.exists() && file.isFile();
+    }
+
+    // Each subclass must implement how it reads data
+    public abstract void read();
+
+    // Each subclass must implement how it writes data
+    public abstract void write();
+}
+
+//Claude(2026)
+//Adapter so LocalTime can be handled correctly while using JSON
+class LocalTimeAdapter implements JsonSerializer<LocalTime>, JsonDeserializer<LocalTime> {
+
+    public JsonElement serialize(LocalTime time, java.lang.reflect.Type type, JsonSerializationContext context) {
+        return new JsonPrimitive(time.toString());
+    }
+
+    public LocalTime deserialize(JsonElement json, java.lang.reflect.Type type, JsonDeserializationContext context) {
+        return LocalTime.parse(json.getAsString());
+    }
+}
+
+//Handles reading and writing JSON files. Used for saving and loading SystemConfig and RiderProfile.
+class JsonFileHandler extends FileHandler {
+    private Gson gson;
+
+    public JsonFileHandler(String filePath) {
+        super(filePath);
+        gson = new GsonBuilder().setPrettyPrinting().enableComplexMapKeySerialization()
+                .registerTypeAdapter(LocalTime.class, new LocalTimeAdapter()).create();
+    }
+
+    @Override
+    public void read() {
+        // Reading is handled by specific load methods below
+    }
+
+    @Override
+    public void write() {
+        // Writing is handled by specific save methods below
+    }
+
+    // Loads SystemConfig from JSON file, returns null if file not found
+    public SystemConfig loadConfig() {
+        SystemConfig result = null;
+        if (validateFile()) {
+            try {
+                java.io.FileReader reader = new java.io.FileReader(getFilePath());
+                result = gson.fromJson(reader, SystemConfig.class);
+                reader.close();
+            } catch (Exception e) {
+                System.out.println("Error loading config file. Using defaults.");
+            }
+        }
+        return result;
+    }
+
+    // Saves SystemConfig to JSON file
+    public void saveConfig(SystemConfig config) {
+        try {
+            java.io.FileWriter writer = new java.io.FileWriter(getFilePath());
+            gson.toJson(config, writer);
+            writer.close();
+            System.out.println("Config saved successfully.");
+        } catch (Exception e) {
+            System.out.println("Error saving config file.");
+        }
+    }
+}
 
 public class CityRideSystem {
     private static final Scanner scanner = new Scanner(System.in);
-    private static final SystemConfig systemConfig = new SystemConfig();
+    private static final JsonFileHandler jsonFileHandler = new JsonFileHandler("config.json");
+    private static final SystemConfig systemConfig = loadSystemConfig();
     private static final FareCalculator fareCalculator = new FareCalculator(systemConfig);
     private static final JourneyManagement journeyManagement = new JourneyManagement(fareCalculator);
     private static int nextJourneyID = 1;
@@ -671,6 +787,14 @@ public class CityRideSystem {
         }
 
         System.out.println("\nGoodbye!");
+    }
+
+    private static SystemConfig loadSystemConfig() {
+        SystemConfig config = jsonFileHandler.loadConfig();
+        if (config == null) {
+            config = new SystemConfig();
+        }
+        return config;
     }
 
     //The most important validation in my code. I created a separate method to avoid repetition in my code, as this piece of code will be used in further validations and for many user inputs.
@@ -1063,12 +1187,14 @@ Today, I started by fixing the errors highlighted in my tutor’s feedback. This
 
 I then proceeded to implement the SystemConfig class. The purpose of this class is to replace the CityRideDataset with a configurable system that an administrator can update at runtime. During this process, I studied the LocalTime class from the Oracle Java documentation to learn how to handle peak and off-peak time windows, as this was new to me. Actually, I initially found this information on GeeksForGeeks, but it referenced Oracle documentation, so I also looked at what was there and cited it, as it generally contains all the information I need in a compact form and is the original source. One of the issues I came across was how to write the determineTimeBand() method correctly, I didn’t just want to compare numbers, since I use LocalTime to work with time, but to compare times correctly, though there’s already a method for this called isBefore() that helped me.        
 
-
-
 ### 03/04/2026 - Diary Entry 2 – Adapting program to use new class SystemConfig
 
 Today I modified the existing program by replacing CityRideDataset with SystemConfig. The CityRideDataset class has been completely removed. As part of the modification, the FareCalculator module has been updated to now pull fares, discounts and restrictions from SystemConfig, and a LocalTime variable has been added to the Journey class and constructor. As the system automatically determines the TimeBand based on the time, the user now enters the time instead of the TimeBand. I also created a helper method called readTime() based on the validation methods I had already written for other variables, such as readDate(). It wasn’t difficult to adapt the existing validations to create a validation for the time entered by user.
 
 Although I didn’t write many lines of code today, it took quite a while because I had to fix loads of errors after deleting the dataset, but the program is now working as before and is already using SystemConfig.
+
+### 05/04/2026 - Diary Entry 3 – Research and adding implementing JsonFileHandler
+
+Today I began implementing the file handling classes. I started by writing the abstract FileHandler class which defines the common structure for all file handlers, then created JsonFileHandler which extends it to handle reading and writing JSON files. However when testing I ran into an issue where the config file was saving nothing, after searching I realised this was caused by Gson not knowing how to deal with the LocalTime type automatically. I researched the Gson User Guide on GitHub which explained how to write custom serialisers and deserialisers, but I struggled to implement it myself. After the program kept crashing I used Claude AI to help me write the LocalTimeAdapter class which solved the problem by converting LocalTime to a string when saving and parsing it back when loading. Using AI wasn’t necessary, but I simply don’t have the time as I have a C++ project submission soon and I’m trying to make everything perfect, and I needed to solve this problem in this project.
 
 ------------------------------------------------------------------------------------------------------------------------------
