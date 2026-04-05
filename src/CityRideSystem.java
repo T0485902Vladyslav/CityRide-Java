@@ -6,6 +6,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Scanner;
 import java.time.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSerializer;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonDeserializationContext;
 
 class Journey{
     private int journeyID;
@@ -545,10 +553,96 @@ class SystemConfig{
     }
 }
 
+//Abstract base class for all file handling operations. JsonFileHandler and CsvFileHandler will extend this class.
+abstract class FileHandler {
+    private String filePath;
+
+    public FileHandler(String filePath) {
+        this.filePath = filePath;
+    }
+
+    public String getFilePath() {
+        return filePath;
+    }
+
+    // Checks if the file exists and is readable
+    public boolean validateFile() {
+        java.io.File file = new java.io.File(filePath);
+        return file.exists() && file.isFile();
+    }
+
+    // Each subclass must implement how it reads data
+    public abstract void read();
+
+    // Each subclass must implement how it writes data
+    public abstract void write();
+}
+
+//Claude(2026)
+//Adapter so LocalTime can be handled correctly while using JSON
+class LocalTimeAdapter implements JsonSerializer<LocalTime>, JsonDeserializer<LocalTime> {
+
+    public JsonElement serialize(LocalTime time, java.lang.reflect.Type type, JsonSerializationContext context) {
+        return new JsonPrimitive(time.toString());
+    }
+
+    public LocalTime deserialize(JsonElement json, java.lang.reflect.Type type, JsonDeserializationContext context) {
+        return LocalTime.parse(json.getAsString());
+    }
+}
+
+//Handles reading and writing JSON files. Used for saving and loading SystemConfig and RiderProfile.
+class JsonFileHandler extends FileHandler {
+    private Gson gson;
+
+    public JsonFileHandler(String filePath) {
+        super(filePath);
+        gson = new GsonBuilder().setPrettyPrinting().enableComplexMapKeySerialization()
+                .registerTypeAdapter(LocalTime.class, new LocalTimeAdapter()).create();
+    }
+
+    @Override
+    public void read() {
+        // Reading is handled by specific load methods below
+    }
+
+    @Override
+    public void write() {
+        // Writing is handled by specific save methods below
+    }
+
+    // Loads SystemConfig from JSON file, returns null if file not found
+    public SystemConfig loadConfig() {
+        SystemConfig result = null;
+        if (validateFile()) {
+            try {
+                java.io.FileReader reader = new java.io.FileReader(getFilePath());
+                result = gson.fromJson(reader, SystemConfig.class);
+                reader.close();
+            } catch (Exception e) {
+                System.out.println("Error loading config file. Using defaults.");
+            }
+        }
+        return result;
+    }
+
+    // Saves SystemConfig to JSON file
+    public void saveConfig(SystemConfig config) {
+        try {
+            java.io.FileWriter writer = new java.io.FileWriter(getFilePath());
+            gson.toJson(config, writer);
+            writer.close();
+            System.out.println("Config saved successfully.");
+        } catch (Exception e) {
+            System.out.println("Error saving config file.");
+        }
+    }
+}
 
 public class CityRideSystem {
     private static final Scanner scanner = new Scanner(System.in);
-    private static final SystemConfig systemConfig = new SystemConfig();
+    private static final JsonFileHandler jsonFileHandler = new JsonFileHandler("config.json");
+    private static final SystemConfig systemConfig = loadSystemConfig();
     private static final FareCalculator fareCalculator = new FareCalculator(systemConfig);
     private static final JourneyManagement journeyManagement = new JourneyManagement(fareCalculator);
     private static int nextJourneyID = 1;
@@ -607,6 +701,14 @@ public class CityRideSystem {
         }
 
         System.out.println("\nGoodbye!");
+    }
+
+    private static SystemConfig loadSystemConfig() {
+        SystemConfig config = jsonFileHandler.loadConfig();
+        if (config == null) {
+            config = new SystemConfig();
+        }
+        return config;
     }
 
     //The most important validation in my code. I created a separate method to avoid repetition in my code, as this piece of code will be used in further validations and for many user inputs.
