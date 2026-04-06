@@ -1,4 +1,4 @@
-# IY4113 Milestone 1 Part 2
+# IY4113 Milestone 2 Part 2
 
 | Assessment Details | Please Complete All Details                                      |
 | ------------------ | ---------------------------------------------------------------- |
@@ -82,6 +82,8 @@ Screenshot of research:
 ### Program code
 
 ---
+
+Program is runnable, but the menu is still the same as in Part 1.
 
 ```java
 import java.util.*;
@@ -723,6 +725,77 @@ class JsonFileHandler extends FileHandler {
             System.out.println("Error saving config file.");
         }
     }
+
+    public RiderProfile loadProfile() {
+        RiderProfile profile = null;
+
+        if (validateFile()) {
+            try (java.io.FileReader reader = new java.io.FileReader(getFilePath())) {
+                profile = gson.fromJson(reader, RiderProfile.class);
+            } catch (Exception e) {
+                System.out.println("Error loading profile.");
+            }
+        }
+
+        return profile;
+    }
+
+    public void saveProfile(RiderProfile profile) {
+        try (java.io.FileWriter writer = new java.io.FileWriter(getFilePath())) {
+            gson.toJson(profile, writer);
+            System.out.println("Profile saved successfully.");
+        } catch (Exception e) {
+            System.out.println("Error saving profile.");
+        }
+    }
+}
+
+class RiderProfile {
+    private String name;
+    private PassengerType passengerType;
+    private String defaultPayment;
+
+    public RiderProfile(String name, PassengerType passengerType, String defaultPayment) {
+        this.name = name;
+        this.passengerType = passengerType;
+        this.defaultPayment = defaultPayment;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public PassengerType getPassengerType() {
+        return passengerType;
+    }
+
+    public String getDefaultPayment() {
+        return defaultPayment;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setPassengerType(PassengerType passengerType) {
+        this.passengerType = passengerType;
+    }
+
+    public void setDefaultPayment(String defaultPayment) {
+        this.defaultPayment = defaultPayment;
+    }
+
+    public String toJSON() {
+        return new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(this);
+    }
+
+    @Override
+    public String toString() {
+        return "=== Rider Profile ===\n" +
+                "Name: " + name + "\n" +
+                "Passenger Type: " + passengerType + "\n" +
+                "Default Payment: " + defaultPayment + "\n";
+    }
 }
 
 public class CityRideSystem {
@@ -1173,7 +1246,7 @@ public class CityRideSystem {
 
 ------------------------------------------------------------------------------------------------------------------------------
 
-![gfd](/private/var/folders/60/82cg9ybd2bg7kgrh339d3zpr0000gn/T/TemporaryItems/com.apple.Photos.NSItemProvider/uuid=C923B6E5-73F6-4537-8565-ADDD29F59A86&code=001&library=1&type=1&mode=1&loc=true&cap=true.png/Image%2002-04-2026%20at%2022.52.png)
+![gf](/Users/dushesssx/Desktop/Screenshot%202026-04-06%20at%2022.10.33.png)
 
 ------------------------------------------------------------------------------------------------------------------------------
 
@@ -1197,4 +1270,21 @@ Although I didn’t write many lines of code today, it took quite a while becaus
 
 Today I began implementing the file handling classes. I started by writing the abstract FileHandler class which defines the common structure for all file handlers, then created JsonFileHandler which extends it to handle reading and writing JSON files. However when testing I ran into an issue where the config file was saving nothing, after searching I realised this was caused by Gson not knowing how to deal with the LocalTime type automatically. I researched the Gson User Guide on GitHub which explained how to write custom serialisers and deserialisers, but I struggled to implement it myself. After the program kept crashing I used Claude AI to help me write the LocalTimeAdapter class which solved the problem by converting LocalTime to a string when saving and parsing it back when loading. Using AI wasn’t necessary, but I simply don’t have the time as I have a C++ project submission soon and I’m trying to make everything perfect, and I needed to solve this problem in this project.
 
+
+
+### 05/04/2026 - Diary Entry 4 – RiderProfile
+
+Today I created the RiderProfile class. I created a class to store user details such as name, passenger type, and payment method. This was done to introduce user-specific data into the system and prepare for future features like linking journeys to a profile.
+
+I have also added methods for saving and loading the profile using JSON, which allows data to be saved between sessions. What I’ve written today will form the basis for future program updates, such as storing all journeys for each user; however, this will involve using a CSV file, but I’ll get back to that later.
+
+Overall, it was a pretty easy day, and I actually didn't get much done, simply because I'm running out of time, as most of it was taken up by finishing the C++ project. It's not clear exactly which part of the program needs to be ready for Milestone 2, but I hope this is enough. I'll have more time later to focus on this project so I can finish it in time before final submission.
+
 ------------------------------------------------------------------------------------------------------------------------------
+
+### References
+
+---
+
+Claude (2026). *JsonSerializer and JsonDeserializer for LocalTime*[Large language model]. Anthropic.
+Prompt: I am using the Gson library to save a Java object to a JSON file. My object contains a LocalTime field from java.time.LocalTime. Gson cannot serialise LocalTime automatically so I need a custom adapter. Can you write me a simple custom adapter class that implements JsonSerializer<LocalTime> and JsonDeserializer<LocalTime>? Please keep the code simple and explain what each part does.
