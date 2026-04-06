@@ -637,6 +637,77 @@ class JsonFileHandler extends FileHandler {
             System.out.println("Error saving config file.");
         }
     }
+
+    public RiderProfile loadProfile() {
+        RiderProfile profile = null;
+
+        if (validateFile()) {
+            try (java.io.FileReader reader = new java.io.FileReader(getFilePath())) {
+                profile = gson.fromJson(reader, RiderProfile.class);
+            } catch (Exception e) {
+                System.out.println("Error loading profile.");
+            }
+        }
+
+        return profile;
+    }
+
+    public void saveProfile(RiderProfile profile) {
+        try (java.io.FileWriter writer = new java.io.FileWriter(getFilePath())) {
+            gson.toJson(profile, writer);
+            System.out.println("Profile saved successfully.");
+        } catch (Exception e) {
+            System.out.println("Error saving profile.");
+        }
+    }
+}
+
+class RiderProfile {
+    private String name;
+    private PassengerType passengerType;
+    private String defaultPayment;
+
+    public RiderProfile(String name, PassengerType passengerType, String defaultPayment) {
+        this.name = name;
+        this.passengerType = passengerType;
+        this.defaultPayment = defaultPayment;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public PassengerType getPassengerType() {
+        return passengerType;
+    }
+
+    public String getDefaultPayment() {
+        return defaultPayment;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setPassengerType(PassengerType passengerType) {
+        this.passengerType = passengerType;
+    }
+
+    public void setDefaultPayment(String defaultPayment) {
+        this.defaultPayment = defaultPayment;
+    }
+
+    public String toJSON() {
+        return new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(this);
+    }
+
+    @Override
+    public String toString() {
+        return "=== Rider Profile ===\n" +
+                "Name: " + name + "\n" +
+                "Passenger Type: " + passengerType + "\n" +
+                "Default Payment: " + defaultPayment + "\n";
+    }
 }
 
 public class CityRideSystem {
