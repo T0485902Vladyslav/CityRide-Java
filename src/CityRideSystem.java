@@ -490,6 +490,8 @@ class SystemConfig{
 
     public TimeBand determineTimeBand(LocalTime time) {
         TimeBand result;
+        //Oracle(2018)
+        //method to compare time
         if (time.isBefore(peakStart) || !time.isBefore(peakEnd)) {
             result = TimeBand.OFF_PEAK;
         } else {
@@ -710,82 +712,17 @@ class RiderProfile {
     }
 }
 
-public class CityRideSystem {
-    private static final Scanner scanner = new Scanner(System.in);
-    private static final JsonFileHandler jsonFileHandler = new JsonFileHandler("config.json");
-    private static final SystemConfig systemConfig = loadSystemConfig();
-    private static final FareCalculator fareCalculator = new FareCalculator(systemConfig);
-    private static final JourneyManagement journeyManagement = new JourneyManagement(fareCalculator);
-    private static int nextJourneyID = 1;
+class InputReader {
+    private Scanner scanner;
 
-    public static void main(String[] args) {
-        System.out.println("====Welcome to CityRide Lite===");
-
-        boolean running =  true;
-        while (running) {            // Keeps the console menu running until the user chooses to exit
-
-            System.out.println("\n==============================");
-            System.out.println("        CITYRIDE LITE");
-            System.out.println("==============================");
-            System.out.println("1. Add journey");
-            System.out.println("2. List all journeys");
-            System.out.println("3. Filter journeys");
-            System.out.println("4. Remove journey");
-            System.out.println("5. View category counts");
-            System.out.println("6. View daily summary");
-            System.out.println("7. View totals by passenger type");
-            System.out.println("8. Reset day");
-            System.out.println("9. Exit");
-            System.out.print("Choose an option (1-9): ");
-
-            int choice = readMenuChoice(1,9);
-
-            switch (choice) {
-                case 1:
-                    addJourney();
-                    break;
-                case 2:
-                    listJourneys();
-                    break;
-                case 3:
-                    filterJourneys();
-                    break;
-                case 4:
-                    removeJourney();
-                    break;
-                case 5:
-                    showCategoryCounts();
-                    break;
-                case 6:
-                    showDailySummary();
-                    break;
-                case 7:
-                    showPassengerTotals();
-                    break;
-                case 8:
-                    resetDay();
-                    break;
-                case 9:
-                    running = false;
-                    break;
-            }
-        }
-
-        System.out.println("\nGoodbye!");
-    }
-
-    private static SystemConfig loadSystemConfig() {
-        SystemConfig config = jsonFileHandler.loadConfig();
-        if (config == null) {
-            config = new SystemConfig();
-        }
-        return config;
+    public InputReader(Scanner scanner) {
+        this.scanner = scanner;
     }
 
     //The most important validation in my code. I created a separate method to avoid repetition in my code, as this piece of code will be used in further validations and for many user inputs.
     //(Claude AI, 2026)
     //Reads a valid integer, re-prompts on blank or non-numeric input.
-    private static int readInt(String prompt) {
+    public int readInt(String prompt) {
         boolean validInput = false;
         int result = 0;
         while (!validInput) {
@@ -806,7 +743,7 @@ public class CityRideSystem {
     }
 
     //I changed this method so that readMenuChoice handle input all at own, without relying on readInt to avoid blank outputs.
-    private static int readMenuChoice(int min, int max) {
+    public int readMenuChoice(int min, int max) {
         boolean validChoice = false;
         int choice = 0;
         while (!validChoice) {
@@ -830,7 +767,7 @@ public class CityRideSystem {
     }
 
     // I created this method to check the user's input (y/n) and avoid repeated code.
-    private static boolean readYesNo(String prompt) {
+    public boolean readYesNo(String prompt) {
         boolean validInput = false;
         boolean answer = false;
         while (!validInput) {
@@ -850,7 +787,7 @@ public class CityRideSystem {
     }
 
     //I created this method to check whether the inputted zone is correct.
-    private static int readZone(String prompt) {
+    public int readZone(String prompt) {
         boolean validChoice = false;
         int zone = 0;
         while (!validChoice) {
@@ -867,7 +804,7 @@ public class CityRideSystem {
     //(Claude AI, 2026)
     // Reads and parses a date in dd/MM/yyyy format, re-prompts on invalid format.
     //I created this method to check whether the inputted date is correct.
-    private static LocalDate readDate(String prompt) {
+    public LocalDate readDate(String prompt) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         boolean validDate = false;
         LocalDate date = LocalDate.now();
@@ -889,7 +826,7 @@ public class CityRideSystem {
     }
 
     //I created this method to check whether the inputted time band is correct.
-    private static TimeBand readTimeBand() {
+    public TimeBand readTimeBand() {
         System.out.println("Time band: ");
         System.out.println("1. Peak");
         System.out.println("2. Off-peak");
@@ -913,7 +850,7 @@ public class CityRideSystem {
     }
 
     //I created this method to check whether the inputed Passenger Type is correct.
-    private static PassengerType readPassengerType() {
+    public PassengerType readPassengerType() {
         System.out.println("Passenger type: ");
         System.out.println("1. Adult");
         System.out.println("2. Student");
@@ -947,7 +884,7 @@ public class CityRideSystem {
     }
 
     // I created this method to check whether the inputted time is correct, method re-prompts user if not.
-    private static LocalTime readTime(String prompt) {
+    public LocalTime readTime(String prompt) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
         boolean validTime = false;
         LocalTime time = LocalTime.now();
@@ -968,13 +905,165 @@ public class CityRideSystem {
         return time;
     }
 
-    private static void addJourney() {
+    public BigDecimal readBigDecimal(String prompt) {
+        boolean validInput = false;
+        BigDecimal result = BigDecimal.ZERO;
+        while (!validInput) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) {
+                System.out.println("Invalid input. Cannot be blank.");
+            }else{
+                try {
+                    result = new BigDecimal(input);
+                    validInput = true;
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid input. Please enter a number e.g. 0.25");
+                }
+            }
+        }
+        return result;
+    }
+}
+
+class RiderService {
+    private Scanner scanner;
+    private JourneyManagement journeyManagement;
+    private FareCalculator fareCalculator;
+    private JsonFileHandler jsonFileHandler;
+    private RiderProfile profile;
+    private InputReader inputReader;
+    private int nextJourneyID = 1;
+
+    public RiderService(Scanner scanner, JourneyManagement journeyManagement, FareCalculator fareCalculator, JsonFileHandler jsonFileHandler) {
+        this.scanner = scanner;
+        this.journeyManagement = journeyManagement;
+        this.fareCalculator = fareCalculator;
+        this.jsonFileHandler = jsonFileHandler;
+        this.inputReader = new InputReader(scanner);
+    }
+
+    public void showMenu() {
+        loadOrCreateProfile();
+
+        boolean running = true;
+        while (running) {            // Keeps the console menu running until the user chooses to exit
+
+            System.out.println("\n==============================");
+            System.out.println("        CITYRIDE LITE");
+            System.out.println("==============================");
+            System.out.println("1. Add journey");
+            System.out.println("2. List all journeys");
+            System.out.println("3. Filter journeys");
+            System.out.println("4. Remove journey");
+            System.out.println("5. View category counts");
+            System.out.println("6. View daily summary");
+            System.out.println("7. View totals by passenger type");
+            System.out.println("8. Reset day");
+            System.out.println("9. Exit");
+            System.out.print("Choose an option (1-9): ");
+
+            int choice = inputReader.readMenuChoice(1,9);
+
+            switch (choice) {
+                case 1:
+                    addJourney();
+                    break;
+                case 2:
+                    listJourneys();
+                    break;
+                case 3:
+                    filterJourneys();
+                    break;
+                case 4:
+                    removeJourney();
+                    break;
+                case 5:
+                    showCategoryCounts();
+                    break;
+                case 6:
+                    showDailySummary();
+                    break;
+                case 7:
+                    showPassengerTotals();
+                    break;
+                case 8:
+                    resetDay();
+                    break;
+                case 9:
+                    running = false;
+                    break;
+            }
+        }
+
+        saveOnExit();
+    }
+
+    // Asks user to load existing profile or create a new one
+    private void loadOrCreateProfile() {
+        System.out.println("\n1. Load existing profile");
+        System.out.println("2. Create new profile");
+        System.out.print("Choose (1-2): ");
+
+        int choice = inputReader.readMenuChoice(1, 2);
+
+        if (choice == 1) {
+            JsonFileHandler profileHandler = new JsonFileHandler("profile.json");
+            profile = profileHandler.loadProfile();
+            if (profile == null) {
+                System.out.println("No profile found. Creating new one.");
+                createProfile();
+            }else{
+                System.out.println("Profile loaded!\n" + profile);
+            }
+        }else{
+            createProfile();
+        }
+    }
+
+    private void createProfile() {
+        System.out.print("Enter your name: ");
+        String name = scanner.nextLine().trim();
+        PassengerType passengerType = inputReader.readPassengerType();
+
+        System.out.println("Default payment: ");
+        System.out.println("1. Cash");
+        System.out.println("2. Card");
+        System.out.println("3. Travel card");
+        System.out.print("Choose (1-3): ");
+        int payChoice = inputReader.readMenuChoice(1, 3);
+        String defaultPayment;
+        if (payChoice == 1) {
+            defaultPayment = "Cash";
+        }else if (payChoice == 2) {
+            defaultPayment = "Card";
+        }else{
+            defaultPayment = "Travel card";
+        }
+
+        profile = new RiderProfile(name, passengerType, defaultPayment);
+        System.out.println("\nProfile created!\n" + profile);
+    }
+
+    // Offers to save profile on exit
+    private void saveOnExit() {
+        boolean save = inputReader.readYesNo("Save your profile before exiting?(y/n): ");
+        if (save) {
+            JsonFileHandler profileHandler = new JsonFileHandler("profile.json");
+            profileHandler.saveProfile(profile);
+        }else{
+            System.out.println("Profile not saved.");
+        }
+        System.out.println("\nGoodbye!");
+    }
+
+    private void addJourney() {
         System.out.println("\nAdd Journey details");
-        LocalDate date = readDate("date(dd/MM/yyyy): ");
-        LocalTime time = readTime("Time (HH:mm): ");
-        int fromZone = readZone("fromZone: ");
-        int toZone = readZone("toZone: ");
-        PassengerType passengerType = readPassengerType();
+        LocalDate date = inputReader.readDate("date(dd/MM/yyyy): ");
+        LocalTime time = inputReader.readTime("Time (HH:mm): ");
+        int fromZone = inputReader.readZone("fromZone: ");
+        int toZone = inputReader.readZone("toZone: ");
+        PassengerType passengerType = inputReader.readPassengerType();
 
         // Running total is used so the FareCalculator can apply the daily cap correctly.
         BigDecimal runningTotal = journeyManagement.getRunningTotal(passengerType);
@@ -988,7 +1077,7 @@ public class CityRideSystem {
         System.out.println(journey);
     }
 
-    private static void listJourneys() {
+    private void listJourneys() {
         List<Journey> journeys = journeyManagement.getDailySummary();
         if(journeys.isEmpty()){
             System.out.println("No journeys yet.");
@@ -1003,7 +1092,7 @@ public class CityRideSystem {
 
     //I created 2 separate methods for each task to follow the Single Responsibility Principle (SRP).
     //This first for grabbing choice from user and printing filtered list
-    private static void filterJourneys() {
+    private void filterJourneys() {
         System.out.println("\n--- Filter Journeys ---");
         System.out.println("1. By passenger type");
         System.out.println("2. By time band");
@@ -1011,7 +1100,7 @@ public class CityRideSystem {
         System.out.println("4. By date");
         System.out.print("Choose (1-4): ");
 
-        int choice = readMenuChoice(1, 4);
+        int choice = inputReader.readMenuChoice(1, 4);
         List<Journey> filtered = getFilteredJourneys(choice);
 
         if(filtered.isEmpty()){
@@ -1027,28 +1116,28 @@ public class CityRideSystem {
     }
 
     //And this second method to get filtered list from journey management.
-    private static List<Journey> getFilteredJourneys(int choice) {
+    private List<Journey> getFilteredJourneys(int choice) {
         List<Journey> filtered = new ArrayList<>();
         switch (choice) {
             case 1:
-                filtered = journeyManagement.filterByPassengerType(readPassengerType());
+                filtered = journeyManagement.filterByPassengerType(inputReader.readPassengerType());
                 break;
             case 2:
-                filtered = journeyManagement.filterByTimeBand(readTimeBand());
+                filtered = journeyManagement.filterByTimeBand(inputReader.readTimeBand());
                 break;
             case 3:
-                filtered = journeyManagement.filterByZones(readZone("Enter zone (1-5): "));
+                filtered = journeyManagement.filterByZones(inputReader.readZone("Enter zone (1-5): "));
                 break;
             case 4:
-                filtered = journeyManagement.filterByDate(readDate("Enter date (dd/MM/yyyy): "));
+                filtered = journeyManagement.filterByDate(inputReader.readDate("Enter date (dd/MM/yyyy): "));
                 break;
         }
         return filtered;
     }
 
-    private static void removeJourney() {
-        int id = readInt("Enter journey id to remove: ");
-        boolean confirmed = readYesNo("Are you sure you want to remove journey#" + id + "?(y/n): ");
+    private void removeJourney() {
+        int id = inputReader.readInt("Enter journey id to remove: ");
+        boolean confirmed = inputReader.readYesNo("Are you sure you want to remove journey#" + id + "?(y/n): ");
         if (confirmed) {
             Journey removed = journeyManagement.removeJourney(id);
 
@@ -1062,7 +1151,7 @@ public class CityRideSystem {
         }
     }
 
-    private static void showCategoryCounts() {
+    private void showCategoryCounts() {
         List<Journey> journeys = journeyManagement.getAllJourneys();
 
         if (journeys.isEmpty()) {
@@ -1107,7 +1196,7 @@ public class CityRideSystem {
         }
     }
 
-    private static void showDailySummary(){
+    private void showDailySummary(){
         List<Journey> journeys = journeyManagement.getAllJourneys();
 
         if (journeys.isEmpty()) {
@@ -1119,7 +1208,7 @@ public class CityRideSystem {
         System.out.println(dailySummary);
     }
 
-    private static void showPassengerTotals(){
+    private void showPassengerTotals(){
         Map<PassengerType, PassengerTotals> totals = journeyManagement.getPassengerTotals();
 
         System.out.println("\n-----Totals by Passenger Type-----\n");
@@ -1139,14 +1228,188 @@ public class CityRideSystem {
         }
     }
 
-    private static void resetDay(){
-        boolean confirmed = readYesNo("Are you sure you want to reset day?(y/n): ");
+    private void resetDay(){
+        boolean confirmed = inputReader.readYesNo("Are you sure you want to reset day?(y/n): ");
         if (confirmed) {
             journeyManagement.resetDay();
             nextJourneyID = 1;
             System.out.println("Day has been reset successfully.");
         }else{
             System.out.println("Day reset cancelled.");
+        }
+    }
+}
+
+class AdminService {
+    private Scanner scanner;
+    private SystemConfig systemConfig;
+    private JsonFileHandler jsonFileHandler;
+    private InputReader inputReader;
+    private static final String PASSWORD = "admin123";
+
+    public AdminService(Scanner scanner, SystemConfig systemConfig, JsonFileHandler jsonFileHandler) {
+        this.scanner = scanner;
+        this.systemConfig = systemConfig;
+        this.jsonFileHandler = jsonFileHandler;
+        this.inputReader = new InputReader(scanner);
+    }
+
+    public boolean login() {
+        boolean result = false;
+        System.out.print("Enter admin password: ");
+        String input = scanner.nextLine().trim();
+        if (input.equals(PASSWORD)) {
+            System.out.println("Access granted.");
+            result = true;
+        }else{
+            System.out.println("Incorrect password. Access denied.");
+        }
+        return result;
+    }
+
+    public void showMenu() {
+        boolean running = true;
+        while (running) {
+            System.out.println("\n==============================");
+            System.out.println("        CITYRIDE - ADMIN");
+            System.out.println("==============================");
+            System.out.println("1. View current config");
+            System.out.println("2. Update discount rate");
+            System.out.println("3. Update daily cap");
+            System.out.println("4. Update peak hours");
+            System.out.println("5. Save config");
+            System.out.println("6. Exit");
+            System.out.print("Choose an option (1-6): ");
+
+            int choice = inputReader.readMenuChoice(1, 6);
+
+            switch (choice) {
+                case 1:
+                    viewConfig();
+                    break;
+                case 2:
+                    updateDiscount();
+                    break;
+                case 3:
+                    updateDailyCap();
+                    break;
+                case 4:
+                    updatePeakHours();
+                    break;
+                case 5:
+                    saveConfig();
+                    break;
+                case 6:
+                    running = false;
+                    break;
+            }
+        }
+    }
+
+    private void viewConfig() {
+        System.out.println("\n-----Current Config-----");
+        System.out.println("Peak hours: " + systemConfig.getPeakStart() + " - " + systemConfig.getPeakEnd());
+
+        System.out.println("\nDiscount rates:");
+        for (PassengerType type : PassengerType.values()) {
+            System.out.println("  " + type + ": " + systemConfig.getDiscountRate(type).multiply(new BigDecimal("100")) + "%");
+        }
+
+        System.out.println("\nDaily caps:");
+        for (PassengerType type : PassengerType.values()) {
+            System.out.println("  " + type + ": £" + systemConfig.getDailyCap(type));
+        }
+    }
+
+    private void updateDiscount() {
+        System.out.println("\nUpdate discount rate");
+        PassengerType type = inputReader.readPassengerType();
+        BigDecimal rate = inputReader.readBigDecimal("Enter new discount rate (e.g. 0.25 for 25%): ");
+
+        if (rate.compareTo(BigDecimal.ZERO) < 0 || rate.compareTo(BigDecimal.ONE) > 0) {
+            System.out.println("Invalid rate. Must be between 0.00 and 1.00.");
+        }else{
+            systemConfig.setDiscountRates(type, rate);
+            System.out.println("Discount updated successfully.");
+        }
+    }
+
+    private void updateDailyCap() {
+        System.out.println("\nUpdate daily cap");
+        PassengerType type = inputReader.readPassengerType();
+        BigDecimal cap = inputReader.readBigDecimal("Enter new daily cap (e.g. 8.00): ");
+
+        if (cap.compareTo(BigDecimal.ZERO) <= 0) {
+            System.out.println("Invalid cap. Must be greater than 0.");
+        }else{
+            systemConfig.setDailyCap(type, cap);
+            System.out.println("Daily cap updated successfully.");
+        }
+    }
+
+    private void updatePeakHours() {
+        System.out.println("\nUpdate peak hours");
+        LocalTime start = inputReader.readTime("Enter peak start time (HH:mm): ");
+        LocalTime end = inputReader.readTime("Enter peak end time (HH:mm): ");
+
+        if (!start.isBefore(end)) {
+            System.out.println("Invalid times. Start must be before end.");
+        }else{
+            systemConfig.setPeakStart(start);
+            systemConfig.setPeakEnd(end);
+            System.out.println("Peak hours updated successfully.");
+        }
+    }
+
+    private void saveConfig() {
+        JsonFileHandler configHandler = new JsonFileHandler("config.json");
+        configHandler.saveConfig(systemConfig);
+    }
+}
+
+public class CityRideSystem {
+    private static final Scanner scanner = new Scanner(System.in);
+    private static final InputReader inputReader = new InputReader(scanner);
+    private static final JsonFileHandler jsonFileHandler = new JsonFileHandler("config.json");
+    private static final SystemConfig systemConfig = loadSystemConfig();
+    private static final FareCalculator fareCalculator = new FareCalculator(systemConfig);
+    private static final JourneyManagement journeyManagement = new JourneyManagement(fareCalculator);
+
+    public static void main(String[] args) {
+        System.out.println("====Welcome to CityRide Lite===");
+        selectRole();
+    }
+
+    private static SystemConfig loadSystemConfig() {
+        SystemConfig config = jsonFileHandler.loadConfig();
+        if (config == null) {
+            config = new SystemConfig();
+        }
+        return config;
+    }
+
+    // Asks user to select a role and goes to the appropriate service
+    private static void selectRole() {
+        boolean running = true;
+        while (running) {
+            System.out.println("\n1. Rider");
+            System.out.println("2. Admin");
+            System.out.print("Select role (1-2): ");
+
+            int choice = inputReader.readMenuChoice(1, 2);
+
+            if (choice == 1) {
+                RiderService riderService = new RiderService(scanner, journeyManagement, fareCalculator, jsonFileHandler);
+                riderService.showMenu();
+                running = false;
+            }else{
+                AdminService adminService = new AdminService(scanner, systemConfig, jsonFileHandler);
+                boolean loggedIn = adminService.login();
+                if (loggedIn) {
+                    adminService.showMenu();
+                    running = false;
+                }
+            }
         }
     }
 }
