@@ -574,10 +574,10 @@ abstract class FileHandler {
     }
 
     // Each subclass must implement how it reads data
-    public abstract void read();
+    public abstract String read();
 
     // Each subclass must implement how it writes data
-    public abstract void write();
+    public abstract void write(String content);
 }
 
 //Claude(2026)
@@ -593,6 +593,7 @@ class LocalTimeAdapter implements JsonSerializer<LocalTime>, JsonDeserializer<Lo
     }
 }
 
+
 //Handles reading and writing JSON files. Used for saving and loading SystemConfig and RiderProfile.
 class JsonFileHandler extends FileHandler {
     private Gson gson;
@@ -603,24 +604,46 @@ class JsonFileHandler extends FileHandler {
                 .registerTypeAdapter(LocalTime.class, new LocalTimeAdapter()).create();
     }
 
+    // Returns raw JSON content from file as string
     @Override
-    public void read() {
-        // Reading is handled by specific load methods below
-    }
-
-    @Override
-    public void write() {
-        // Writing is handled by specific save methods below
-    }
-
-    // Loads SystemConfig from JSON file, returns null if file not found
-    public SystemConfig loadConfig() {
-        SystemConfig result = null;
+    public String read() {
+        String result = null;
         if (validateFile()) {
             try {
-                java.io.FileReader reader = new java.io.FileReader(getFilePath());
-                result = gson.fromJson(reader, SystemConfig.class);
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(getFilePath()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
                 reader.close();
+                result = sb.toString();
+            } catch (Exception e) {
+                System.out.println("Error reading file.");
+            }
+        }
+        return result;
+    }
+
+    // Writes raw string content to JSON file
+    @Override
+    public void write(String content) {
+        try {
+            java.io.FileWriter writer = new java.io.FileWriter(getFilePath());
+            writer.write(content);
+            writer.close();
+        } catch (Exception e) {
+            System.out.println("Error writing file.");
+        }
+    }
+
+    // Loads SystemConfig from JSON file using read() internally
+    public SystemConfig loadConfig() {
+        SystemConfig result = null;
+        String content = read();
+        if (content != null) {
+            try {
+                result = gson.fromJson(content, SystemConfig.class);
             } catch (Exception e) {
                 System.out.println("Error loading config file. Using defaults.");
             }
@@ -628,39 +651,150 @@ class JsonFileHandler extends FileHandler {
         return result;
     }
 
-    // Saves SystemConfig to JSON file
+    // Saves SystemConfig to JSON file using write() internally
     public void saveConfig(SystemConfig config) {
-        try {
-            java.io.FileWriter writer = new java.io.FileWriter(getFilePath());
-            gson.toJson(config, writer);
-            writer.close();
-            System.out.println("Config saved successfully.");
-        } catch (Exception e) {
-            System.out.println("Error saving config file.");
-        }
+        write(gson.toJson(config));
+        System.out.println("Config saved successfully.");
     }
 
+    // Loads RiderProfile from JSON file using read() internally
     public RiderProfile loadProfile() {
-        RiderProfile profile = null;
-
-        if (validateFile()) {
-            try (java.io.FileReader reader = new java.io.FileReader(getFilePath())) {
-                profile = gson.fromJson(reader, RiderProfile.class);
+        RiderProfile result = null;
+        String content = read();
+        if (content != null) {
+            try {
+                result = gson.fromJson(content, RiderProfile.class);
             } catch (Exception e) {
                 System.out.println("Error loading profile.");
             }
         }
-
-        return profile;
+        return result;
     }
 
+    // Saves RiderProfile to JSON file using write() internally
     public void saveProfile(RiderProfile profile) {
-        try (java.io.FileWriter writer = new java.io.FileWriter(getFilePath())) {
-            gson.toJson(profile, writer);
-            System.out.println("Profile saved successfully.");
-        } catch (Exception e) {
-            System.out.println("Error saving profile.");
+        write(gson.toJson(profile));
+        System.out.println("Profile saved successfully.");
+    }
+}
+
+// Handles reading and writing CSV files. Used for importing and exporting journeys.
+class CsvFileHandler extends FileHandler {
+
+    public CsvFileHandler(String filePath) {
+        super(filePath);
+    }
+
+    // Returns raw CSV content from file as string
+    @Override
+    public String read() {
+        String result = null;
+        if (validateFile()) {
+            try {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(getFilePath()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+                reader.close();
+                result = sb.toString();
+            } catch (Exception e) {
+                System.out.println("Error reading CSV file.");
+            }
         }
+        return result;
+    }
+
+    // Writes raw string content to CSV file
+    @Override
+    public void write(String content) {
+        try {
+            java.io.FileWriter writer = new java.io.FileWriter(getFilePath());
+            writer.write(content);
+            writer.close();
+        } catch (Exception e) {
+            System.out.println("Error writing CSV file.");
+        }
+    }
+
+    // Imports journeys from CSV file using read() internally
+    public List<Journey> importJourneys() {
+        List<Journey> journeys = new ArrayList<>();
+        String content = read();
+
+        if (content == null) {
+            System.out.println("CSV file not found.");
+            return journeys;
+        }
+
+        String[] lines = content.split("\n");
+        boolean firstLine = true;
+
+        for (String line : lines) {
+            if (!firstLine && !line.trim().isEmpty()) {
+                Journey journey = parseJourneyFromLine(line);
+                if (journey != null) {
+                    journeys.add(journey);
+                }
+            }
+            firstLine = false;
+        }
+
+        System.out.println(journeys.size() + " journey(s) imported successfully.");
+        return journeys;
+    }
+
+    // Parses a single CSV line into a Journey object
+    private Journey parseJourneyFromLine(String line) {
+        Journey result = null;
+        try {
+            String[] parts = line.split(",");
+            int journeyID = Integer.parseInt(parts[0].trim());
+            LocalDate date = LocalDate.parse(parts[1].trim());
+            LocalTime time = LocalTime.parse(parts[2].trim());
+            int fromZone = Integer.parseInt(parts[3].trim());
+            int toZone = Integer.parseInt(parts[4].trim());
+            TimeBand timeBand = TimeBand.valueOf(parts[5].trim());
+            PassengerType passengerType = PassengerType.valueOf(parts[6].trim());
+            int zonesCrossed = Integer.parseInt(parts[7].trim());
+            BigDecimal baseFare = new BigDecimal(parts[8].trim());
+            BigDecimal discountedFare = new BigDecimal(parts[9].trim());
+            BigDecimal chargedFare = new BigDecimal(parts[10].trim());
+
+            result = new Journey(journeyID, date, time, fromZone, toZone, timeBand, passengerType, zonesCrossed, baseFare, discountedFare, chargedFare);
+        } catch (Exception e) {
+            System.out.println("Skipping invalid line: " + line);
+        }
+        return result;
+    }
+
+    // Exports journeys to CSV file using write() internally
+    public void exportJourneys(List<Journey> journeys) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("id,date,time,fromZone,toZone,timeBand,passengerType,zonesCrossed,baseFare,discountedFare,chargedFare\n");
+
+        for (Journey journey : journeys) {
+            sb.append(journeyToCsvRow(journey)).append("\n");
+        }
+
+        write(sb.toString());
+        System.out.println("Journeys exported successfully to " + getFilePath());
+    }
+
+    // Converts a Journey object to a CSV row string
+    private String journeyToCsvRow(Journey journey) {
+        return journey.getJourneyID() + "," +
+                journey.getDate() + "," +
+                journey.getTime() + "," +
+                journey.getFromZone() + "," +
+                journey.getToZone() + "," +
+                journey.getTimeBand() + "," +
+                journey.getPassengerType() + "," +
+                journey.getZonesCrossed() + "," +
+                journey.getBaseFare().setScale(2, RoundingMode.HALF_UP) + "," +
+                journey.getDiscountedFare().setScale(2, RoundingMode.HALF_UP) + "," +
+                journey.getChargedFare().setScale(2, RoundingMode.HALF_UP);
     }
 }
 
@@ -697,10 +831,6 @@ class RiderProfile {
 
     public void setDefaultPayment(String defaultPayment) {
         this.defaultPayment = defaultPayment;
-    }
-
-    public String toJSON() {
-        return new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(this);
     }
 
     @Override
@@ -960,10 +1090,12 @@ class RiderService {
             System.out.println("6. View daily summary");
             System.out.println("7. View totals by passenger type");
             System.out.println("8. Reset day");
-            System.out.println("9. Exit");
-            System.out.print("Choose an option (1-9): ");
+            System.out.println("9. Import journeys from CSV");
+            System.out.println("10. Export journeys to CSV");
+            System.out.println("11. Exit");
+            System.out.print("Choose an option (1-11): ");
 
-            int choice = inputReader.readMenuChoice(1,9);
+            int choice = inputReader.readMenuChoice(1, 11);
 
             switch (choice) {
                 case 1:
@@ -991,6 +1123,12 @@ class RiderService {
                     resetDay();
                     break;
                 case 9:
+                    importJourneys();
+                    break;
+                case 10:
+                    exportJourneys();
+                    break;
+                case 11:
                     running = false;
                     break;
             }
@@ -1156,56 +1294,53 @@ class RiderService {
 
         if (journeys.isEmpty()) {
             System.out.println("No journeys yet.");
-            return;
-        }
+        }else {
+            Map<TimeBand, Integer> byTimeBand = new HashMap<>();
+            for (TimeBand timeBand : TimeBand.values()) {
+                byTimeBand.put(timeBand, 0);
+            }
 
-        Map<TimeBand, Integer> byTimeBand = new HashMap<>();
-        for (TimeBand timeBand : TimeBand.values()) {
-            byTimeBand.put(timeBand, 0);
-        }
+            Map<String, Integer> byZonePair = new HashMap<>();
+            Map<Integer, Integer> byZone = new HashMap<>();
 
-        Map<String, Integer> byZonePair = new HashMap<>();
-        Map<Integer, Integer> byZone = new HashMap<>();
+            for (Journey journey : journeys) {
+                byTimeBand.put(journey.getTimeBand(), byTimeBand.get(journey.getTimeBand()) + 1);
 
-        for (Journey journey : journeys) {
-            byTimeBand.put(journey.getTimeBand(), byTimeBand.get(journey.getTimeBand()) + 1);
+                String pair = journey.getFromZone() + "-" + journey.getToZone();
+                byZonePair.put(pair, byZonePair.getOrDefault(pair, 0) + 1);
 
-            String pair = journey.getFromZone() + "-" + journey.getToZone();
-            byZonePair.put(pair, byZonePair.getOrDefault(pair, 0) + 1);
+                byZone.put(journey.getFromZone(), byZone.getOrDefault(journey.getFromZone(), 0) + 1);
+                byZone.put(journey.getToZone(), byZone.getOrDefault(journey.getToZone(),   0) + 1);
+            }
 
-            byZone.put(journey.getFromZone(), byZone.getOrDefault(journey.getFromZone(), 0) + 1);
-            byZone.put(journey.getToZone(), byZone.getOrDefault(journey.getToZone(),   0) + 1);
-        }
+            System.out.println("\n-----Category counts-----");
 
-        System.out.println("\n-----Category counts-----");
+            System.out.println("\nBy Time Band:");
+            for (TimeBand timeBand : TimeBand.values()) {
+                System.out.println("  " + timeBand + ": " + byTimeBand.get(timeBand) + " journey(s)");
+            }
 
-        System.out.println("\nBy Time Band:");
-        for (TimeBand timeBand : TimeBand.values()) {
-            System.out.println("  " + timeBand + ": " + byTimeBand.get(timeBand) + " journey(s)");
-        }
+            System.out.println("\nBy Zone Pair:");
+            for (Map.Entry<String, Integer> entry : byZonePair.entrySet()) {
+                String[] zones = entry.getKey().split("-");
+                System.out.println("  Zone " + zones[0] + " -> Zone " + zones[1] + ": " + entry.getValue() + " journey(s)");
+            }
 
-        System.out.println("\nBy Zone Pair:");
-        for (Map.Entry<String, Integer> entry : byZonePair.entrySet()) {
-            String[] zones = entry.getKey().split("-");
-            System.out.println("  Zone " + zones[0] + " -> Zone " + zones[1] + ": " + entry.getValue() + " journey(s)");
-        }
-
-        System.out.println("\nBy Zone Involvement:");
-        for (Map.Entry<Integer, Integer> entry : byZone.entrySet()) {
-            System.out.println("  Zone " + entry.getKey() + ": " + entry.getValue() + " journey(s)");
+            System.out.println("\nBy Zone Involvement:");
+            for (Map.Entry<Integer, Integer> entry : byZone.entrySet()) {
+                System.out.println("  Zone " + entry.getKey() + ": " + entry.getValue() + " journey(s)");
+            }
         }
     }
 
-    private void showDailySummary(){
+    private void showDailySummary() {
         List<Journey> journeys = journeyManagement.getAllJourneys();
-
         if (journeys.isEmpty()) {
             System.out.println("No journeys yet.");
-            return;
+        } else {
+            DailySummary dailySummary = new DailySummary(journeys);
+            System.out.println(dailySummary);
         }
-
-        DailySummary dailySummary = new DailySummary(journeys);
-        System.out.println(dailySummary);
     }
 
     private void showPassengerTotals(){
@@ -1236,6 +1371,25 @@ class RiderService {
             System.out.println("Day has been reset successfully.");
         }else{
             System.out.println("Day reset cancelled.");
+        }
+    }
+
+    private void importJourneys() {
+        CsvFileHandler csvFileHandler = new CsvFileHandler("journeys.csv");
+        List<Journey> imported = csvFileHandler.importJourneys();
+        for (Journey journey : imported) {
+            journeyManagement.addJourney(journey);
+            nextJourneyID = journey.getJourneyID() + 1;
+        }
+    }
+
+    private void exportJourneys() {
+        List<Journey> journeys = journeyManagement.getAllJourneys();
+        if (journeys.isEmpty()) {
+            System.out.println("No journeys to export.");
+        }else{
+            CsvFileHandler csvFileHandler = new CsvFileHandler("journeys.csv");
+            csvFileHandler.exportJourneys(journeys);
         }
     }
 }
