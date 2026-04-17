@@ -341,7 +341,7 @@ class DailySummary {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("============================\n");
-        sb.append("  Daily Summary: \n");
+        sb.append("        Daily Summary \n");
         sb.append("============================\n");
         sb.append("Total Journeys:  ").append(getTotalJourneys()).append("\n");
         sb.append("Total Cost:      £").append(getTotalCost().setScale(2, RoundingMode.HALF_UP)).append("\n");
@@ -1056,6 +1056,55 @@ class InputReader {
     }
 }
 
+// Generates and saves end-of-day reports in text and CSV formats
+class ReportExporter {
+    private String riderName;
+    private LocalDate date;
+
+    public ReportExporter(String riderName, LocalDate date) {
+        this.riderName = riderName;
+        this.date = date;
+    }
+
+    // Builds the file name using rider name and date
+    public String buildFileName(String extension) {
+        return riderName.replace(" ", "_") + "_" + date + "_report." + extension;
+    }
+
+    // Exports end-of-day summary as a human-readable text to file
+    public void exportTextSummary(List<Journey> journeys) {
+        String fileName = buildFileName("txt");
+        DailySummary summary = new DailySummary(journeys);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("============================\n");
+        sb.append("        Daily Report\n");
+        sb.append("============================\n");
+        sb.append("Rider: ").append(riderName).append("\n");
+        sb.append("Date: ").append(date).append("\n");
+        sb.append("============================\n\n");
+        sb.append(summary).append("\n");
+
+        sb.append("--- Journey Details ---\n");
+        for (Journey journey : journeys) {
+            sb.append(journey.toString()).append("\n");
+            sb.append("--------------------------\n");
+        }
+
+        CsvFileHandler fileHandler = new CsvFileHandler(fileName);
+        fileHandler.write(sb.toString());
+        System.out.println("Text report saved to " + fileName);
+    }
+
+    // Exports journeys as a CSV report
+    public void exportCsvReport(List<Journey> journeys) {
+        String fileName = buildFileName("csv");
+        CsvFileHandler csvFileHandler = new CsvFileHandler(fileName);
+        csvFileHandler.exportJourneys(journeys);
+        System.out.println("CSV report saved to " + fileName);
+    }
+}
+
 class RiderService {
     private Scanner scanner;
     private JourneyManagement journeyManagement;
@@ -1092,10 +1141,11 @@ class RiderService {
             System.out.println("8. Reset day");
             System.out.println("9. Import journeys from CSV");
             System.out.println("10. Export journeys to CSV");
-            System.out.println("11. Exit");
-            System.out.print("Choose an option (1-11): ");
+            System.out.println("11. Export daily report");
+            System.out.println("12. Exit");
+            System.out.print("Choose an option (1-12): ");
 
-            int choice = inputReader.readMenuChoice(1, 11);
+            int choice = inputReader.readMenuChoice(1, 12);
 
             switch (choice) {
                 case 1:
@@ -1129,6 +1179,9 @@ class RiderService {
                     exportJourneys();
                     break;
                 case 11:
+                    exportReport();
+                    break;
+                case 12:
                     running = false;
                     break;
             }
@@ -1390,6 +1443,17 @@ class RiderService {
         }else{
             CsvFileHandler csvFileHandler = new CsvFileHandler("journeys.csv");
             csvFileHandler.exportJourneys(journeys);
+        }
+    }
+
+    private void exportReport() {
+        List<Journey> journeys = journeyManagement.getAllJourneys();
+        if (journeys.isEmpty()) {
+            System.out.println("No journeys to export.");
+        }else{
+            ReportExporter exporter = new ReportExporter(profile.getName(), LocalDate.now());
+            exporter.exportTextSummary(journeys);
+            exporter.exportCsvReport(journeys);
         }
     }
 }
