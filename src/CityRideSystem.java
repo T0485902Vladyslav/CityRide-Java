@@ -238,6 +238,27 @@ class JourneyManagement {
         }
     }
 
+    public Journey findJourney(int journeyID) {
+        Journey result = null;
+        for (Journey journey : journeys) {
+            if (journey.getJourneyID() == journeyID) {
+                result = journey;
+                break;
+            }
+        }
+        return result;
+    }
+
+    public void editJourney(int journeyID, LocalDate newDate, LocalTime newTime, int newFromZone, int newToZone, PassengerType newPassengerType) {
+        for (int i = 0; i < journeys.size(); i++) {
+            if (journeys.get(i).getJourneyID() == journeyID) {
+                Journey edited = fareCalculator.createJourney(journeyID, newDate, newTime, newFromZone, newToZone, newPassengerType, BigDecimal.ZERO);
+                journeys.set(i, edited);
+                recalculateAll();
+                break;
+            }
+        }
+    }
 }
 
 enum PassengerType{
@@ -353,9 +374,49 @@ class DailySummary {
             sb.append("Most expensive: Journey #").append(mostExpensive.getJourneyID()).append(" £").append(mostExpensive.getChargedFare().setScale(2, RoundingMode.HALF_UP)).append("\n");
 
         }
+
+        BigDecimal savings = getCapSavings();
+        if (savings.compareTo(BigDecimal.ZERO) > 0) {
+            sb.append("Cap Savings:     £").append(savings).append("\n");
+        }
         return sb.toString();
     }
 
+    public BigDecimal getCapSavings() {
+        BigDecimal totalBase = BigDecimal.ZERO;
+        BigDecimal totalCharged = BigDecimal.ZERO;
+        for (Journey journey : journeys) {
+            totalBase = totalBase.add(journey.getDiscountedFare());
+            totalCharged = totalCharged.add(journey.getChargedFare());
+        }
+        return totalBase.subtract(totalCharged).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public String getCategoryCounts(List<Journey> journeys) {
+        Map<TimeBand, Integer> byTimeBand = new HashMap<>();
+        for (TimeBand timeBand : TimeBand.values()) {
+            byTimeBand.put(timeBand, 0);
+        }
+        Map<String, Integer> byZonePair = new HashMap<>();
+
+        for (Journey journey : journeys) {
+            byTimeBand.put(journey.getTimeBand(), byTimeBand.get(journey.getTimeBand()) + 1);
+            String pair = journey.getFromZone() + "-" + journey.getToZone();
+            byZonePair.put(pair, byZonePair.getOrDefault(pair, 0) + 1);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("By Time Band:\n");
+        for (TimeBand timeBand : TimeBand.values()) {
+            sb.append("  ").append(timeBand).append(": ").append(byTimeBand.get(timeBand)).append(" journey(s)\n");
+        }
+        sb.append("By Zone Pair:\n");
+        for (Map.Entry<String, Integer> entry : byZonePair.entrySet()) {
+            String[] zones = entry.getKey().split("-");
+            sb.append("  Zone ").append(zones[0]).append(" -> Zone ").append(zones[1]).append(": ").append(entry.getValue()).append(" journey(s)\n");
+        }
+        return sb.toString();
+    }
 }
 
 class FareCalculator{
@@ -1068,7 +1129,11 @@ class ReportExporter {
 
     // Builds the file name using rider name and date
     public String buildFileName(String extension) {
-        return riderName.replace(" ", "_") + "_" + date + "_report." + extension;
+        java.io.File reportsDir = new java.io.File("reports");
+        if (!reportsDir.exists()) {
+            reportsDir.mkdir();
+        }
+        return "reports/" + riderName.replace(" ", "_") + "_" + date + "_report." + extension;
     }
 
     // Exports end-of-day summary as a human-readable text to file
@@ -1084,6 +1149,7 @@ class ReportExporter {
         sb.append("Date: ").append(date).append("\n");
         sb.append("============================\n\n");
         sb.append(summary).append("\n");
+        sb.append(summary.getCategoryCounts(journeys)).append("\n");
 
         sb.append("--- Journey Details ---\n");
         for (Journey journey : journeys) {
@@ -1129,23 +1195,24 @@ class RiderService {
         while (running) {            // Keeps the console menu running until the user chooses to exit
 
             System.out.println("\n==============================");
-            System.out.println("        CITYRIDE LITE");
+            System.out.println("           CITYRIDE ");
             System.out.println("==============================");
             System.out.println("1. Add journey");
             System.out.println("2. List all journeys");
             System.out.println("3. Filter journeys");
-            System.out.println("4. Remove journey");
-            System.out.println("5. View category counts");
-            System.out.println("6. View daily summary");
-            System.out.println("7. View totals by passenger type");
-            System.out.println("8. Reset day");
-            System.out.println("9. Import journeys from CSV");
-            System.out.println("10. Export journeys to CSV");
-            System.out.println("11. Export daily report");
-            System.out.println("12. Exit");
-            System.out.print("Choose an option (1-12): ");
+            System.out.println("4. Edit journey");
+            System.out.println("5. Remove journey");
+            System.out.println("6. View category counts");
+            System.out.println("7. View daily summary");
+            System.out.println("8. View totals by passenger type");
+            System.out.println("9. Reset day");
+            System.out.println("10. Import journeys from CSV");
+            System.out.println("11. Export journeys to CSV");
+            System.out.println("12. Export daily report");
+            System.out.println("13. Exit");
+            System.out.print("Choose an option (1-13): ");
 
-            int choice = inputReader.readMenuChoice(1, 12);
+            int choice = inputReader.readMenuChoice(1, 13);
 
             switch (choice) {
                 case 1:
@@ -1158,30 +1225,33 @@ class RiderService {
                     filterJourneys();
                     break;
                 case 4:
-                    removeJourney();
+                    editJourney();
                     break;
                 case 5:
-                    showCategoryCounts();
+                    removeJourney();
                     break;
                 case 6:
-                    showDailySummary();
+                    showCategoryCounts();
                     break;
                 case 7:
-                    showPassengerTotals();
+                    showDailySummary();
                     break;
                 case 8:
-                    resetDay();
+                    showPassengerTotals();
                     break;
                 case 9:
-                    importJourneys();
+                    resetDay();
                     break;
                 case 10:
-                    exportJourneys();
+                    importJourneys();
                     break;
                 case 11:
-                    exportReport();
+                    exportJourneys();
                     break;
                 case 12:
+                    exportReport();
+                    break;
+                case 13:
                     running = false;
                     break;
             }
@@ -1236,14 +1306,19 @@ class RiderService {
         System.out.println("\nProfile created!\n" + profile);
     }
 
-    // Offers to save profile on exit
+    // Offers to save profile and journeys on exit
     private void saveOnExit() {
-        boolean save = inputReader.readYesNo("Save your profile before exiting?(y/n): ");
+        boolean save = inputReader.readYesNo("Save your profile and journeys before exiting?(y/n): ");
         if (save) {
             JsonFileHandler profileHandler = new JsonFileHandler("profile.json");
             profileHandler.saveProfile(profile);
+            List<Journey> journeys = journeyManagement.getAllJourneys();
+            if (!journeys.isEmpty()) {
+                CsvFileHandler csvFileHandler = new CsvFileHandler("journeys.csv");
+                csvFileHandler.exportJourneys(journeys);
+            }
         }else{
-            System.out.println("Profile not saved.");
+            System.out.println("Profile with journeys not saved.");
         }
         System.out.println("\nGoodbye!");
     }
@@ -1324,6 +1399,24 @@ class RiderService {
                 break;
         }
         return filtered;
+    }
+
+    private void editJourney() {
+        int id = inputReader.readInt("Enter journey ID to edit: ");
+        Journey existing = journeyManagement.findJourney(id);
+
+        if (existing == null) {
+            System.out.println("Journey #" + id + " not found.");
+        }else{
+            System.out.println("Enter new journey details:");
+            LocalDate date = inputReader.readDate("Date (dd/MM/yyyy): ");
+            LocalTime time = inputReader.readTime("Time (HH:mm): ");
+            int fromZone = inputReader.readZone("From zone (1-5): ");
+            int toZone = inputReader.readZone("To zone (1-5): ");
+            PassengerType passengerType = inputReader.readPassengerType();
+            journeyManagement.editJourney(id, date, time, fromZone, toZone, passengerType);
+            System.out.println("Journey #" + id + " updated successfully.");
+        }
     }
 
     private void removeJourney() {
@@ -1431,8 +1524,13 @@ class RiderService {
         CsvFileHandler csvFileHandler = new CsvFileHandler("journeys.csv");
         List<Journey> imported = csvFileHandler.importJourneys();
         for (Journey journey : imported) {
-            journeyManagement.addJourney(journey);
-            nextJourneyID = journey.getJourneyID() + 1;
+            // Recreate journey with new unique ID to prevent journeys with same id
+            Journey reindexed = new Journey(nextJourneyID, journey.getDate(), journey.getTime(),
+                    journey.getFromZone(), journey.getToZone(), journey.getTimeBand(),
+                    journey.getPassengerType(), journey.getZonesCrossed(),
+                    journey.getBaseFare(), journey.getDiscountedFare(), journey.getChargedFare());
+            journeyManagement.addJourney(reindexed);
+            nextJourneyID++;
         }
     }
 
@@ -1495,11 +1593,12 @@ class AdminService {
             System.out.println("2. Update discount rate");
             System.out.println("3. Update daily cap");
             System.out.println("4. Update peak hours");
-            System.out.println("5. Save config");
-            System.out.println("6. Exit");
-            System.out.print("Choose an option (1-6): ");
+            System.out.println("5. Update base fare");
+            System.out.println("6. Save config");
+            System.out.println("7. Exit");
+            System.out.print("Choose an option (1-7): ");
 
-            int choice = inputReader.readMenuChoice(1, 6);
+            int choice = inputReader.readMenuChoice(1, 7);
 
             switch (choice) {
                 case 1:
@@ -1515,9 +1614,12 @@ class AdminService {
                     updatePeakHours();
                     break;
                 case 5:
-                    saveConfig();
+                    updateBaseFare();
                     break;
                 case 6:
+                    saveConfig();
+                    break;
+                case 7:
                     running = false;
                     break;
             }
@@ -1576,6 +1678,32 @@ class AdminService {
             systemConfig.setPeakStart(start);
             systemConfig.setPeakEnd(end);
             System.out.println("Peak hours updated successfully.");
+        }
+    }
+
+    private void updateBaseFare() {
+        System.out.println("\nUpdate base fare");
+        int fromZone = inputReader.readZone("Enter from zone (1-5): ");
+        int toZone = inputReader.readZone("Enter to zone (1-5): ");
+        System.out.println("Time band: ");
+        System.out.println("1. Peak");
+        System.out.println("2. Off-peak");
+        System.out.print("Choose (1-2): ");
+        int bandChoice = inputReader.readMenuChoice(1, 2);
+        TimeBand timeBand;
+
+        if (bandChoice == 1) {
+            timeBand = TimeBand.PEAK;
+        }else{
+            timeBand = TimeBand.OFF_PEAK;
+        }
+
+        BigDecimal fare = inputReader.readBigDecimal("Enter new fare (e.g. 3.50): ");
+        if (fare.compareTo(BigDecimal.ZERO) <= 0) {
+            System.out.println("Invalid fare. Must be greater than 0.");
+        }else{
+            systemConfig.setBaseFares(fromZone, toZone, timeBand, fare);
+            System.out.println("Base fare updated successfully.");
         }
     }
 
