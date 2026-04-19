@@ -1168,6 +1168,23 @@ class InputReader {
         }
         return result;
     }
+
+    // Reads a non-blank string, re-prompts on empty input
+    public String readString(String prompt) {
+        boolean validInput = false;
+        String result = "";
+        while (!validInput) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) {
+                System.out.println("Invalid input. Cannot be blank.");
+            } else {
+                result = input;
+                validInput = true;
+            }
+        }
+        return result;
+    }
 }
 
 // Generates and saves end-of-day reports in text and CSV formats
@@ -1336,8 +1353,7 @@ class RiderService {
     }
 
     private void createProfile() {
-        System.out.print("Enter your name: ");
-        String name = scanner.nextLine().trim();
+        String name = inputReader.readString("Enter your name: ");
         PassengerType passengerType = inputReader.readPassengerType();
 
         System.out.println("Default payment: ");
