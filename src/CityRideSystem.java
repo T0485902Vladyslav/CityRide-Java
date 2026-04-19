@@ -27,11 +27,12 @@ class Journey{
     private BigDecimal discountedFare;
     private BigDecimal chargedFare;
     private LocalTime time;
+    boolean capApplied;
 
     public Journey(int journeyID, LocalDate date, LocalTime time, int fromZone, int toZone,
                    TimeBand timeBand, PassengerType passengerType,
                    int zonesCrossed, BigDecimal baseFare,
-                   BigDecimal discountedFare, BigDecimal chargedFare) {
+                   BigDecimal discountedFare, BigDecimal chargedFare, boolean capApplied) {
 
         this.journeyID = journeyID;
         this.date = date;
@@ -44,6 +45,7 @@ class Journey{
         this.baseFare = baseFare;
         this.discountedFare = discountedFare;
         this.chargedFare = chargedFare;
+        this.capApplied = capApplied;
     }
 
     public int getJourneyID() {
@@ -79,6 +81,9 @@ class Journey{
     public LocalTime getTime() {
         return time;
     }
+    public boolean isCapApplied() {
+        return capApplied;
+    }
 
     public String toString() {
         return "Journey #" + journeyID + "\n" +
@@ -91,9 +96,9 @@ class Journey{
                 "Zones Crossed: " + zonesCrossed + "\n" +
                 "Base Fare: £" + baseFare.setScale(2, RoundingMode.HALF_UP).toPlainString() + "\n" +
                 "Discounted Fare: £" + discountedFare.setScale(2, RoundingMode.HALF_UP).toPlainString() + "\n" +
-                "Charged Fare: £" + chargedFare.setScale(2, RoundingMode.HALF_UP).toPlainString();
+                "Charged Fare: £" + chargedFare.setScale(2, RoundingMode.HALF_UP).toPlainString() +
+                "Cap Applied: " + (capApplied ? "Yes" : "No") + "\n";
     }
-
 }
 
 class JourneyManagement {
@@ -295,7 +300,7 @@ class PassengerTotals {
         this.discountedTotal = discountedTotal.add(discountedFare);
         this.chargedTotal = chargedTotal.add(chargedFare);
 
-        if (chargedFare.compareTo(BigDecimal.ZERO) == 0) {
+        if (chargedFare.compareTo(discountedFare) < 0) {
             capReached = true;
         }
     }
@@ -375,21 +380,19 @@ class DailySummary {
 
         }
 
-        BigDecimal savings = getCapSavings();
-        if (savings.compareTo(BigDecimal.ZERO) > 0) {
-            sb.append("Cap Savings:     £").append(savings).append("\n");
-        }
+        sb.append("Cap Savings:     £").append(getCapSavings()).append("\n");
+
         return sb.toString();
     }
 
     public BigDecimal getCapSavings() {
-        BigDecimal totalBase = BigDecimal.ZERO;
+        BigDecimal totalDiscounted = BigDecimal.ZERO;
         BigDecimal totalCharged = BigDecimal.ZERO;
         for (Journey journey : journeys) {
-            totalBase = totalBase.add(journey.getDiscountedFare());
+            totalDiscounted = totalDiscounted.add(journey.getDiscountedFare());
             totalCharged = totalCharged.add(journey.getChargedFare());
         }
-        return totalBase.subtract(totalCharged).setScale(2, RoundingMode.HALF_UP);
+        return totalDiscounted.subtract(totalCharged).setScale(2, RoundingMode.HALF_UP);
     }
 
     public String getCategoryCounts(List<Journey> journeys) {
@@ -450,7 +453,8 @@ class FareCalculator{
         return chargedFare.setScale(2, RoundingMode.HALF_UP);
     }
 
-    public Journey createJourney(int journeyID, LocalDate date, LocalTime time, int fromZone, int toZone, PassengerType passengerType, BigDecimal runningTotal){
+    public Journey createJourney(int journeyID, LocalDate date, LocalTime time, int fromZone,
+                                 int toZone, PassengerType passengerType, BigDecimal runningTotal) {
         int zonesCrossed = Math.abs(toZone - fromZone) + 1;
         TimeBand timeBand = config.determineTimeBand(time);
 
@@ -458,7 +462,10 @@ class FareCalculator{
         BigDecimal discountedFare = calculateDiscountedFare(baseFare, passengerType);
         BigDecimal chargedFare = calculateChargedFare(discountedFare, passengerType, runningTotal);
 
-        return new Journey(journeyID, date, time, fromZone, toZone, timeBand, passengerType, zonesCrossed, baseFare, discountedFare, chargedFare);
+        boolean capApplied = chargedFare.compareTo(discountedFare) < 0;
+
+        return new Journey(journeyID, date, time, fromZone, toZone, timeBand, passengerType,
+                zonesCrossed, baseFare, discountedFare, chargedFare, capApplied);
     }
 }
 
@@ -614,6 +621,45 @@ class SystemConfig{
     public void setDailyCap(PassengerType passengerType, BigDecimal cap) {
         dailyCaps.put(passengerType, cap);
     }
+
+    // Resets a single base fare back to its default value
+    public void resetBaseFare(int fromZone, int toZone, TimeBand timeBand) {
+        String key = fromZone + "-" + toZone + "-" + timeBand.name();
+        Map<String, BigDecimal> savedFares = new HashMap<>(baseFares);
+        loadDefaultBaseFares();
+        BigDecimal defaultFare = baseFares.get(key);
+        baseFares = savedFares;
+        baseFares.put(key, defaultFare);
+    }
+
+    // Resets a passenger discount back to its default
+    public void resetDiscountRate(PassengerType passengerType) {
+        Map<PassengerType, BigDecimal> savedRates = new HashMap<>(discountRates);
+        loadDefaultDiscounts();
+        BigDecimal defaultRate = discountRates.get(passengerType);
+        discountRates = savedRates;
+        discountRates.put(passengerType, defaultRate);
+    }
+
+    // Resets a daily cap back to its default
+    public void resetDailyCap(PassengerType passengerType) {
+        Map<PassengerType, BigDecimal> savedCaps = new HashMap<>(dailyCaps);
+        loadDefaultDailyCaps();
+        BigDecimal defaultCap = dailyCaps.get(passengerType);
+        dailyCaps = savedCaps;
+        dailyCaps.put(passengerType, defaultCap);
+    }
+
+    // Resets peak hours back to default
+    public void resetPeakHours() {
+        peakStart = LocalTime.of(7, 0);
+        peakEnd = LocalTime.of(19, 0);
+    }
+
+    // Resets everything back to defaults
+    public void resetAllToDefaults() {
+        loadDefaults();
+    }
 }
 
 //Abstract base class for all file handling operations. JsonFileHandler and CsvFileHandler will extend this class.
@@ -629,7 +675,7 @@ abstract class FileHandler {
     }
 
     // Checks if the file exists and is readable
-    public boolean validateFile() {
+    protected boolean validateFile() {
         java.io.File file = new java.io.File(filePath);
         return file.exists() && file.isFile();
     }
@@ -705,6 +751,12 @@ class JsonFileHandler extends FileHandler {
         if (content != null) {
             try {
                 result = gson.fromJson(content, SystemConfig.class);
+                if (result != null && (result.getBaseFares() == null || result.getDiscountRates() == null
+                        || result.getDailyCaps() == null || result.getPeakStart() == null
+                        || result.getPeakEnd() == null)) {
+                    System.out.println("Config file incomplete. Using defaults.");
+                    result = null;
+                }
             } catch (Exception e) {
                 System.out.println("Error loading config file. Using defaults.");
             }
@@ -784,25 +836,23 @@ class CsvFileHandler extends FileHandler {
         List<Journey> journeys = new ArrayList<>();
         String content = read();
 
-        if (content == null) {
-            System.out.println("CSV file not found.");
-            return journeys;
-        }
-
-        String[] lines = content.split("\n");
-        boolean firstLine = true;
-
-        for (String line : lines) {
-            if (!firstLine && !line.trim().isEmpty()) {
-                Journey journey = parseJourneyFromLine(line);
-                if (journey != null) {
-                    journeys.add(journey);
+        if (content != null) {
+            String[] lines = content.split("\n");
+            boolean firstLine = true;
+            for (String line : lines) {
+                if (!firstLine && !line.trim().isEmpty()) {
+                    Journey journey = parseJourneyFromLine(line);
+                    if (journey != null) {
+                        journeys.add(journey);
+                    }
                 }
+                firstLine = false;
             }
-            firstLine = false;
+            System.out.println(journeys.size() + " journey(s) imported successfully.");
+        } else {
+            System.out.println("CSV file not found.");
         }
 
-        System.out.println(journeys.size() + " journey(s) imported successfully.");
         return journeys;
     }
 
@@ -822,8 +872,10 @@ class CsvFileHandler extends FileHandler {
             BigDecimal baseFare = new BigDecimal(parts[8].trim());
             BigDecimal discountedFare = new BigDecimal(parts[9].trim());
             BigDecimal chargedFare = new BigDecimal(parts[10].trim());
+            boolean capApplied = Boolean.parseBoolean(parts[11].trim());   // NEW
 
-            result = new Journey(journeyID, date, time, fromZone, toZone, timeBand, passengerType, zonesCrossed, baseFare, discountedFare, chargedFare);
+            result = new Journey(journeyID, date, time, fromZone, toZone, timeBand, passengerType,
+                    zonesCrossed, baseFare, discountedFare, chargedFare, capApplied);
         } catch (Exception e) {
             System.out.println("Skipping invalid line: " + line);
         }
@@ -833,7 +885,7 @@ class CsvFileHandler extends FileHandler {
     // Exports journeys to CSV file using write() internally
     public void exportJourneys(List<Journey> journeys) {
         StringBuilder sb = new StringBuilder();
-        sb.append("id,date,time,fromZone,toZone,timeBand,passengerType,zonesCrossed,baseFare,discountedFare,chargedFare\n");
+        sb.append("id,date,time,fromZone,toZone,timeBand,passengerType,zonesCrossed,baseFare,discountedFare,chargedFare,capApplied\n");
 
         for (Journey journey : journeys) {
             sb.append(journeyToCsvRow(journey)).append("\n");
@@ -855,7 +907,8 @@ class CsvFileHandler extends FileHandler {
                 journey.getZonesCrossed() + "," +
                 journey.getBaseFare().setScale(2, RoundingMode.HALF_UP) + "," +
                 journey.getDiscountedFare().setScale(2, RoundingMode.HALF_UP) + "," +
-                journey.getChargedFare().setScale(2, RoundingMode.HALF_UP);
+                journey.getChargedFare().setScale(2, RoundingMode.HALF_UP) + "," +
+                journey.isCapApplied();
     }
 }
 
@@ -1195,7 +1248,7 @@ class RiderService {
         while (running) {            // Keeps the console menu running until the user chooses to exit
 
             System.out.println("\n==============================");
-            System.out.println("           CITYRIDE ");
+            System.out.println("       CITYRIDE - RIDER");
             System.out.println("==============================");
             System.out.println("1. Add journey");
             System.out.println("2. List all journeys");
@@ -1524,12 +1577,11 @@ class RiderService {
         CsvFileHandler csvFileHandler = new CsvFileHandler("journeys.csv");
         List<Journey> imported = csvFileHandler.importJourneys();
         for (Journey journey : imported) {
-            // Recreate journey with new unique ID to prevent journeys with same id
-            Journey reindexed = new Journey(nextJourneyID, journey.getDate(), journey.getTime(),
-                    journey.getFromZone(), journey.getToZone(), journey.getTimeBand(),
-                    journey.getPassengerType(), journey.getZonesCrossed(),
-                    journey.getBaseFare(), journey.getDiscountedFare(), journey.getChargedFare());
-            journeyManagement.addJourney(reindexed);
+            BigDecimal runningTotal = journeyManagement.getRunningTotal(journey.getPassengerType());
+            Journey recalculated = fareCalculator.createJourney(nextJourneyID, journey.getDate(),
+                    journey.getTime(), journey.getFromZone(), journey.getToZone(),
+                    journey.getPassengerType(), runningTotal);
+            journeyManagement.addJourney(recalculated);
             nextJourneyID++;
         }
     }
@@ -1587,43 +1639,90 @@ class AdminService {
         boolean running = true;
         while (running) {
             System.out.println("\n==============================");
-            System.out.println("        CITYRIDE - ADMIN");
+            System.out.println("       CITYRIDE - ADMIN");
             System.out.println("==============================");
             System.out.println("1. View current config");
             System.out.println("2. Update discount rate");
             System.out.println("3. Update daily cap");
             System.out.println("4. Update peak hours");
             System.out.println("5. Update base fare");
-            System.out.println("6. Save config");
-            System.out.println("7. Exit");
-            System.out.print("Choose an option (1-7): ");
+            System.out.println("6. Reset to default");
+            System.out.println("7. Save config");
+            System.out.println("8. Exit");
+            System.out.print("Choose an option (1-8): ");
 
-            int choice = inputReader.readMenuChoice(1, 7);
+            int choice = inputReader.readMenuChoice(1, 8);
 
             switch (choice) {
+                case 1: viewConfig(); break;
+                case 2: updateDiscount(); break;
+                case 3: updateDailyCap(); break;
+                case 4: updatePeakHours(); break;
+                case 5: updateBaseFare(); break;
+                case 6: resetToDefault(); break;
+                case 7: saveConfig(); break;
+                case 8: running = false; break;
+            }
+        }
+    }
+
+    private void resetToDefault() {
+        System.out.println("\n--- Reset to Default ---");
+        System.out.println("1. Reset a base fare");
+        System.out.println("2. Reset a discount rate");
+        System.out.println("3. Reset a daily cap");
+        System.out.println("4. Reset peak hours");
+        System.out.println("5. Reset everything");
+        System.out.print("Choose (1-5): ");
+
+        int choice = inputReader.readMenuChoice(1, 5);
+        boolean confirmed = inputReader.readYesNo("Are you sure? This cannot be undone. (y/n): ");
+
+        if (!confirmed) {
+            System.out.println("Reset cancelled.");
+        } else {
+            switch (choice) {
                 case 1:
-                    viewConfig();
+                    resetBaseFare();
                     break;
                 case 2:
-                    updateDiscount();
+                    PassengerType discountType = inputReader.readPassengerType();
+                    systemConfig.resetDiscountRate(discountType);
+                    System.out.println("Discount rate for " + discountType + " reset to default.");
                     break;
                 case 3:
-                    updateDailyCap();
+                    PassengerType capType = inputReader.readPassengerType();
+                    systemConfig.resetDailyCap(capType);
+                    System.out.println("Daily cap for " + capType + " reset to default.");
                     break;
                 case 4:
-                    updatePeakHours();
+                    systemConfig.resetPeakHours();
+                    System.out.println("Peak hours reset to default (07:00 - 19:00).");
                     break;
                 case 5:
-                    updateBaseFare();
-                    break;
-                case 6:
-                    saveConfig();
-                    break;
-                case 7:
-                    running = false;
+                    systemConfig.resetAllToDefaults();
+                    System.out.println("All config values reset to defaults.");
                     break;
             }
         }
+    }
+
+    private void resetBaseFare() {
+        int fromZone = inputReader.readZone("Enter from zone (1-5): ");
+        int toZone = inputReader.readZone("Enter to zone (1-5): ");
+        System.out.println("Time band: ");
+        System.out.println("1. Peak");
+        System.out.println("2. Off-peak");
+        System.out.print("Choose (1-2): ");
+        int bandChoice = inputReader.readMenuChoice(1, 2);
+        TimeBand timeBand;
+        if (bandChoice == 1) {
+            timeBand = TimeBand.PEAK;
+        } else {
+            timeBand = TimeBand.OFF_PEAK;
+        }
+        systemConfig.resetBaseFare(fromZone, toZone, timeBand);
+        System.out.println("Base fare for " + fromZone + "-" + toZone + " " + timeBand + " reset to default.");
     }
 
     private void viewConfig() {
