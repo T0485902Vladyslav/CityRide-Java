@@ -717,6 +717,7 @@ class JsonFileHandler extends FileHandler {
         String result = null;
         if (validateFile()) {
             try {
+                // Oracle (2023)
                 java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(getFilePath()));
                 StringBuilder sb = new StringBuilder();
                 String line;
@@ -1199,6 +1200,8 @@ class ReportExporter {
 
     // Builds the file name using rider name and date
     public String buildFileName(String extension) {
+        // GeeksforGeeks (2025)
+        // For checking if a directory exists  and creating it with mkdir() if it does not
         java.io.File reportsDir = new java.io.File("reports");
         if (!reportsDir.exists()) {
             reportsDir.mkdir();
