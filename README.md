@@ -59,8 +59,6 @@ On startup, pick a role from the main menu:
 
 ## 📸 Screenshots
 
-<!-- Add screenshots to a docs/ folder and update the paths below -->
-
 ### Role Selection
 
 ![Shows the Rider/Admin role prompt on startup.](docs/screenshot-role.png)
@@ -93,8 +91,8 @@ On startup, pick a role from the main menu:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/T0485902Vladyslav/cityride-lite.git
-cd cityride-lite
+git clone https://github.com/T0485902Vladyslav/CityRide-Java.git
+cd CityRide-Java
 ```
 
 ### 2. Build
